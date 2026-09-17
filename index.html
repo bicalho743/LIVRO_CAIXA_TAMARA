@@ -949,7 +949,9 @@
       const mesCompra = parseInt(mm);
       const ano = mesCompra > mesFechamento ? anoFatura - 1 : anoFatura;
       const iso = `${ano}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
-      lancamentos.push({data:iso, hist:desc3, valor:valorApp, doc:cartao});
+      // a fatura sempre imprime a data ORIGINAL da compra, mesmo na parcela 02/04, 03/04...
+      // por isso é preciso deslocar aqui também, não só nas parcelas futuras projetadas abaixo
+      lancamentos.push({data:ajustarParc(iso, desc3), hist:desc3, valor:valorApp, doc:cartao});
     }
 
     if(!lancamentos.length){
