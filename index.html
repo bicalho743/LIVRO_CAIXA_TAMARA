@@ -960,17 +960,19 @@
     // para não depender de importar a fatura do mês seguinte para ela aparecer.
     // Só projeta a partir da parcela 01 (é a única com data-base confiável) e
     // assume valor igual em todas as parcelas.
-    const parcRE = /PARC\s+(\d{2})\/(\d{2})/i;
+    // tolerante a variações de extração do PDF.js: "PARC 1/2", "PARC 01 / 02", "PARC01/02"...
+    const parcRE = /PARC\s*(\d{1,2})\s*\/\s*(\d{1,2})/i;
     const jaTem = (data,hist) => lancamentos.some(x=>x.data===data && x.hist===hist);
     lancamentos.slice().forEach(l=>{
       const pm = l.hist.match(parcRE);
       if(!pm) return;
       const atual = parseInt(pm[1]), total = parseInt(pm[2]);
       if(atual!==1 || total<=1) return;
+      const totalStr = String(total).padStart(2,"0");
       for(let p=2; p<=total; p++){
         const numStr = String(p).padStart(2,"0");
-        const histFutura = l.hist.replace(parcRE, `PARC ${numStr}/${pm[2]}`);
-        const dataFutura = ajustarParc(l.data, `PARC ${numStr}/${pm[2]}`);
+        const histFutura = l.hist.replace(parcRE, `PARC ${numStr}/${totalStr}`);
+        const dataFutura = ajustarParc(l.data, `PARC ${numStr}/${totalStr}`);
         if(jaTem(dataFutura,histFutura)) continue; // já veio na própria fatura
         lancamentos.push({data:dataFutura, hist:histFutura, valor:l.valor, doc:l.doc});
       }
