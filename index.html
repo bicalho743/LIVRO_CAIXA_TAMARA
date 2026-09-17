@@ -663,8 +663,11 @@
   /* nome do estabelecimento, limpo dos prefixos do BB */
   function mercado(hist){
     const bruto = String(hist).trim();
-    const ehPix = /^\s*(Pix|Transferência)/i.test(bruto);
-    if(!ehPix){
+    // prefixos genéricos do BB que não identificam o estabelecimento sozinhos —
+    // "Compra com Cartão - dd/mm hh:mm ESTABELECIMENTO" repete o mesmo prefixo em
+    // toda compra no cartão, então não pode virar o termo da regra.
+    const ehGenerico = /^\s*(Pix|Transferência|Compra\s+com\s+Cart[ãa]o)\b/i.test(bruto);
+    if(!ehGenerico){
       const corte = bruto.split(/\s+-\s+/)[0].trim();
       if(corte.length>3) return corte.toUpperCase().slice(0,34).trim();
     }
@@ -672,6 +675,7 @@
       .replace(/^\s*Pix\s*-\s*(Enviado|Recebido)\s*-\s*/i,"")
       .replace(/^\s*Pix-Envio devolvido\s*-\s*/i,"")
       .replace(/^\s*Transferência Periódica\s*-\s*/i,"")
+      .replace(/^\s*Compra\s+com\s+Cart[ãa]o\s*-\s*/i,"")
       .replace(/^\d{2}\/\d{2}\s+\d{2}:\d{2}\s*/,"")
       .replace(/^\d{11,}\s*/,"")
       .trim();
@@ -911,14 +915,28 @@
     try{ pdfDoc = await pdfjsLib.getDocument({data:buf}).promise; }
     catch(e){ avisar("Não consegui abrir o PDF. Verifique se o arquivo não está protegido.",true); return; }
 
-    // extrair todo o texto
-    let textoTotal = "";
+    // extrair o texto reconstruindo as linhas reais da fatura pela posição (Y) de cada
+    // item, em vez de simplesmente concatenar tudo com espaço. Isso evita que uma linha
+    // sem código de país/canal (ex.: "ENCARGOS FINANC ROTATIVO", "IOF - COMPRA NO
+    // EXTERIOR") "engula" a data e o valor da linha seguinte na mesma regex.
+    const linhasItens = [];
     for(let p=1;p<=pdfDoc.numPages;p++){
       const page = await pdfDoc.getPage(p);
       const content = await page.getTextContent();
-      // juntar itens em linha preservando espaços
-      textoTotal += content.items.map(i=>i.str).join(" ") + "\n";
+      const itens = content.items.filter(it=>it.str && it.str.trim()!=="");
+      itens.sort((a,b)=> b.transform[5]-a.transform[5] || a.transform[4]-b.transform[4]);
+      const TOL = 2; // tolerância (pt) pra agrupar itens da mesma linha visual
+      let linha=null, ultimoY=null;
+      itens.forEach(it=>{
+        const y = it.transform[5];
+        if(linha===null || Math.abs(y-ultimoY)>TOL){ linha=[]; linhasItens.push(linha); ultimoY=y; }
+        linha.push(it);
+      });
     }
+    const textoTotal = linhasItens.map(itensLinha=>{
+      itensLinha.sort((a,b)=>a.transform[4]-b.transform[4]);
+      return itensLinha.map(i=>i.str).join(" ");
+    }).join("\n");
 
     // detectar cartão e ano da fatura
     const mCartao = textoTotal.match(/Final\s+(\d{4})/i);
@@ -928,14 +946,17 @@
     const anoFatura    = mFecha ? parseInt(mFecha[2]) : new Date().getFullYear();
     const mesFechamento= mFecha ? parseInt(mFecha[1]) : new Date().getMonth()+1;
 
-    // regex: DD/MM DESCRIÇÃO ... BR|IA  R$ [-]N,NN
-    const RE = /(\d{2})\/(\d{2})\s+(.+?)\s+(?:BR|IA)\s+R\$\s*([-\d.,]+)/g;
+    // regex aplicada por LINHA (não mais no texto inteiro): DD/MM DESCRIÇÃO [código opcional] R$ [-]N,NN
+    // o código de país/canal (BR, IA, TX, CA...) agora é opcional, pois tarifas e encargos
+    // internos (ENCARGOS FINANC ROTATIVO, IOF...) não vêm acompanhados desse código.
+    const RE = /^\s*(\d{2})\/(\d{2})\s+(.+?)\s+(?:[A-Z]{2}\s+)?R\$\s*([-\d.,]+)\s*$/;
     const lancamentos = [];
-    let m;
-    while((m=RE.exec(textoTotal))!==null){
+    textoTotal.split("\n").forEach(linhaTxt=>{
+      const m = linhaTxt.match(RE);
+      if(!m) return;
       const [,dd,mm,desc,valStr] = m;
       const desc2 = desc.trim();
-      if(/^(PGTO|PAGTO|PAGAMENTO|SALDO FATURA)/i.test(desc2)) continue;
+      if(/^(PGTO|PAGTO|PAGAMENTO|SALDO FATURA)/i.test(desc2)) return;
       // ANTEC = parcelas antecipadas cobradas pelo banco (ex: cancelamento de compra parcelada)
       // devem entrar normalmente — são cobranças reais
       const ehAntec = /^ANTEC\s+\d{2}\/\d{2}-/i.test(desc2);
@@ -944,7 +965,7 @@
         ? desc2.replace(/^ANTEC\s+(\d{2}\/\d{2})-\s*/i, (_, p)=>``).trim() + ` (antecipada ${desc2.match(/^ANTEC\s+(\d{2}\/\d{2})/i)[1]})`
         : desc2;
       const v = parseFloat(valStr.replace(/\./g,"").replace(",","."));
-      if(isNaN(v)||v===0) continue;
+      if(isNaN(v)||v===0) return;
       const valorApp = v > 0 ? -v : Math.abs(v);
       const mesCompra = parseInt(mm);
       const ano = mesCompra > mesFechamento ? anoFatura - 1 : anoFatura;
@@ -952,7 +973,7 @@
       // a fatura sempre imprime a data ORIGINAL da compra, mesmo na parcela 02/04, 03/04...
       // por isso a data é deslocada aqui; nenhuma parcela é lançada antes de vir na própria fatura
       lancamentos.push({data:ajustarParc(iso, desc3), hist:desc3, valor:valorApp, doc:cartao});
-    }
+    });
 
     if(!lancamentos.length){
       avisar("Não encontrei lançamentos no PDF. Verifique se é a fatura do BB Ourocard.",true); return;
