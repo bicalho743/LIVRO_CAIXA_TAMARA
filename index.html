@@ -22,7 +22,7 @@
   }
   *{box-sizing:border-box}
   #lc{font-family:var(--sans);color:var(--tinta);background:var(--papel);
-      font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 60px;display:none}
+      font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 60px}
   #lc h1,#lc h2,#lc h3{margin:0;font-weight:500}
   #lc button{font-family:var(--sans);cursor:pointer}
   #lc :focus-visible{outline:2px solid var(--ouro);outline-offset:2px}
@@ -39,6 +39,27 @@
                      padding:10px 0 0;font-weight:500}
   .conta-tab[data-conta=pj].ativa{color:#1E8A5F;border-bottom-color:#1E8A5F}
   .conta-tab[data-conta=all].ativa{color:#5B4FCF;border-bottom-color:#5B4FCF}
+
+  /* ---- tela de login ---- */
+  #telaLogin{position:fixed;inset:0;background:var(--papel);display:flex;align-items:center;
+             justify-content:center;z-index:100;flex-direction:column;gap:0}
+  #telaLogin.oculta{display:none}
+  .login-card{background:#fff;border:1px solid var(--linha);border-radius:4px;
+              padding:52px 48px;max-width:420px;width:90%;text-align:center;
+              box-shadow:0 8px 40px rgba(38,37,31,.10)}
+  .login-logo{font-family:var(--serif);font-size:42px;font-weight:500;color:var(--tinta);
+              letter-spacing:-.01em;line-height:1;margin-bottom:6px}
+  .login-sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--cinza);
+             margin-bottom:40px}
+  .login-titulo{font-size:15px;color:var(--cinza);margin-bottom:32px;line-height:1.55}
+  .btn-google{display:inline-flex;align-items:center;gap:12px;background:#fff;
+              border:1px solid var(--linha);border-radius:3px;padding:13px 28px;
+              font-family:var(--sans);font-size:14px;font-weight:500;color:var(--tinta);
+              cursor:pointer;transition:box-shadow .15s,border-color .15s;width:100%;
+              justify-content:center}
+  .btn-google:hover{border-color:var(--verde);box-shadow:0 2px 12px rgba(47,74,60,.12)}
+  .btn-google svg{flex:none}
+  .login-rodape{font-size:11.5px;color:var(--cinza);margin-top:28px;line-height:1.6}
 
   /* ---- cabeçalho ---- */
   .topo{border-bottom:1px solid var(--linha);padding:26px 28px 20px;
@@ -258,24 +279,6 @@
       border:1px solid var(--linha-clara);font-size:13.5px}
   .prolabore-bar .sub{color:var(--cinza);font-size:12px}
 
-  /* ---- tela de login ---- */
-  .tela-login{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
-      background:radial-gradient(circle at 30% 20%,#345441 0%,var(--verde) 45%,#1a2a21 100%);
-      font-family:var(--sans);padding:24px}
-  .login-caixa{background:var(--papel);border-radius:6px;max-width:400px;width:100%;
-      padding:46px 38px 34px;box-shadow:0 24px 60px rgba(0,0,0,.35);text-align:center}
-  .login-selo{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;
-      border-radius:50%;background:var(--marfim);color:var(--ouro);font-size:18px;margin-bottom:18px}
-  .login-marca h1{font-family:var(--serif);font-size:33px;color:var(--tinta);letter-spacing:.01em}
-  .login-marca p{margin:7px 0 0;font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--cinza)}
-  .login-texto{font-size:13.5px;color:var(--cinza);line-height:1.6;margin:24px 0 28px}
-  .login-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
-      background:#fff;border:1px solid var(--linha);color:var(--tinta);font-size:14px;font-weight:500;
-      padding:12px 18px;border-radius:3px;transition:box-shadow .15s,border-color .15s}
-  .login-google:hover{box-shadow:0 3px 12px rgba(0,0,0,.12);border-color:var(--verde-suave)}
-  .login-google svg{width:19px;height:19px;flex:none}
-  .login-rodape{font-size:11.5px;color:var(--cinza);margin-top:24px;line-height:1.55}      .login-aviso{font-size:12.5px;color:var(--tijolo);background:#FBEAE7;border-radius:3px;padding:10px 12px;margin-bottom:18px;line-height:1.5}
-
   @media (max-width:860px){
     .paineis{grid-template-columns:1fr;gap:30px}
     .totais{grid-template-columns:1fr 1fr;gap:18px 0}
@@ -285,30 +288,27 @@
   }
 </style>
 
-<div id="telaLogin" class="tela-login">
-  <div class="login-caixa">
-    <div class="login-marca">
-      <div class="login-selo">✦</div>
-      <h1>Livro-caixa</h1>
-      <p>Tâmara Cavalcante · Organizer</p>
-    </div>
-    <p class="login-texto">Controle financeiro pessoal e do MEI em um só lugar. Entre com sua conta Google para acessar seus lançamentos.</p>
-    <button class="login-google" id="btLoginGoogle" type="button">
-      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.1-5.1l-6.5-5.5C29.6 35.4 26.9 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.6 5.1C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.5 5.5C40.9 36.5 44 30.8 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+<div id="telaLogin">
+  <div class="login-card">
+    <div class="login-logo">Livro-caixa</div>
+    <div class="login-sub">Tâmara Cavalcante · Organizer</div>
+    <p class="login-titulo">Controle financeiro pessoal e do negócio.<br>Seus dados ficam seguros na nuvem,<br>acessíveis em qualquer dispositivo.</p>
+    <button class="btn-google" id="btnLoginGoogle">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
       Entrar com Google
     </button>
-        <p id="loginAviso" class="login-aviso" style="display:none">A tentativa de login expirou ou foi cancelada. Clique em "Entrar com Google" para tentar novamente.</p>
-        <p class="login-rodape">Seus dados ficam vinculados à sua conta Google e sincronizados com segurança na nuvem.</p>
+    <p class="login-rodape">Seus dados ficam vinculados à sua conta Google.<br>Nenhuma informação é compartilhada.</p>
   </div>
 </div>
 
 <div id="lc">
-  <div id="barraUsuario" style="display:flex;align-items:center;gap:10px;padding:8px 28px;background:var(--marfim);border-bottom:1px solid var(--linha-clara);justify-content:flex-end;font-family:var(--sans)"></div>
+
   <header class="topo">
     <div class="marca">
       <h1>Livro-caixa</h1>
       <p>Tâmara Cavalcante · Organizer</p>
     </div>
+    <div id="barraUsuario" style="display:flex;align-items:center;gap:8px;font-family:var(--sans)"></div>
     <div class="acoes">
       <button class="bt" id="btImportar">Importar extrato do BB</button>
       <button class="bt vazado" id="btImportarPDF">Importar fatura cartão</button>
@@ -343,7 +343,7 @@
   const $ = s => document.querySelector(s);
 
   // ── Supabase ──────────────────────────────────────────────
-  const SB_URL  = "https://ejbnjpucrlnnxvqyoduj.supabase.co";
+  const SB_URL  = "https://ejbnjpucrlnnxvqyoduj.supabase.com";
   const SB_KEY  = "sb_publishable_bP2idWNlD39yb_O0ZFMDIQ_tH9ZUO6v";
   const sb = supabase.createClient(SB_URL, SB_KEY);
 
@@ -379,71 +379,43 @@
         || "Você";
   }
 
-  function mostrarTelaLogin(mostrar){
-    const tela = document.getElementById("telaLogin");
-    const app  = document.getElementById("lc");
-    if(tela) tela.style.display = mostrar ? "flex" : "none";
-    if(app)  app.style.display  = mostrar ? "none" : "block";
-  }
-
-      (function tratarErroLogin(){
-        try{
-          const params = new URLSearchParams(location.search);
-          if(params.has("error")){
-            history.replaceState({}, document.title, location.pathname);
-            const aviso = document.getElementById("loginAviso");
-            if(aviso) aviso.style.display = "block";
-          }
-        }catch(e){}
-      })();
-
-      function atualizarBarraUsuario(){
-    mostrarTelaLogin(!sbUser);
+  function atualizarBarraUsuario(){
     const barra = document.getElementById("barraUsuario");
-    if(!barra) return;
+    const tela  = document.getElementById("telaLogin");
+    if(!barra||!tela) return;
     if(sbUser){
+      // esconder tela de login, mostrar app
+      tela.classList.add("oculta");
       barra.innerHTML =
-        '<span style="font-size:13px;color:var(--cinza)">'+
+        '<span style="font-size:13px;color:var(--cinza);display:flex;align-items:center;gap:8px">'+
           (sbUser.user_metadata?.avatar_url
-            ? '<img src="'+sbUser.user_metadata.avatar_url+'" style="width:22px;height:22px;border-radius:50%;vertical-align:middle;margin-right:6px">'
-            : "")
-          + nomeUsuario()
-        +'</span>'+
+            ? '<img src="'+sbUser.user_metadata.avatar_url+'" style="width:28px;height:28px;border-radius:50%">'
+            : '<span style="width:28px;height:28px;border-radius:50%;background:var(--verde);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px">'+nomeUsuario()[0].toUpperCase()+'</span>')
+          + '<span>'+nomeUsuario()+'</span>'+
+        '</span>'+
         '<button class="bt vazado" id="btLogout" style="font-size:12px;padding:5px 12px">Sair</button>';
       document.getElementById("btLogout").onclick = async()=>{
-        await sb.auth.signOut(); location.reload();
+        await sb.auth.signOut();
+        tela.classList.remove("oculta");
+        barra.innerHTML="";
       };
     } else {
-      barra.innerHTML =
-        '<button class="bt" id="btLogin" style="font-size:12px;padding:6px 14px">'+
-        '🔐 Entrar com Google</button>';
-      document.getElementById("btLogin").onclick = async()=>{
+      // mostrar tela de login
+      tela.classList.remove("oculta");
+      barra.innerHTML="";
+      // ligar botão da tela de login
+      const btn=document.getElementById("btnLoginGoogle");
+      if(btn) btn.onclick = async()=>{
+        btn.disabled=true; btn.textContent="Aguarde…";
         await sb.auth.signInWithOAuth({
           provider:"google",
-          options:{ redirectTo: location.origin + location.pathname }
+          options:{ redirectTo: location.href }
         });
       };
     }
   }
 
-        const btLoginGoogle = document.getElementById("btLoginGoogle");
-      if(btLoginGoogle){
-        btLoginGoogle.onclick = async()=>{
-          if(btLoginGoogle.disabled) return;
-          btLoginGoogle.disabled = true;
-          btLoginGoogle.style.opacity = "0.6";
-          const { error } = await sb.auth.signInWithOAuth({
-            provider:"google",
-            options:{ redirectTo: location.origin + location.pathname }
-          });
-          if(error){
-            btLoginGoogle.disabled = false;
-            btLoginGoogle.style.opacity = "";
-          }
-        };
-      }
-
-      /* ================= categorias e regras padrão ================= */
+  /* ================= categorias e regras padrão ================= */
   const CATS_PJ = new Set([
     "Receita de cliente","Reembolso e estorno","Rendimento","Transferência recebida",
     "Produtos para venda","Pró-labore (retirada MEI)","Material de trabalho",
@@ -966,12 +938,15 @@
       if(/^(PGTO|PAGTO|PAGAMENTO|SALDO FATURA)/i.test(desc2)) continue;
       if(/^ANTEC\s+\d{2}\/\d{2}-/i.test(desc2)) continue;
       const v = parseFloat(valStr.replace(/\./g,"").replace(",","."));
-      if(isNaN(v)||v<=0) continue;
+      if(isNaN(v)||v===0) continue;
+      // positivo na fatura = compra (saída no app = negativo)
+      // negativo na fatura = estorno/crédito de compra (entrada no app = positivo)
+      const valorApp = v > 0 ? -v : Math.abs(v);
       // compras com mês > mês de fechamento são do ano anterior à fatura
       const mesCompra = parseInt(mm);
       const ano = mesCompra > mesFechamento ? anoFatura - 1 : anoFatura;
       const iso = `${ano}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
-      lancamentos.push({data:iso, hist:desc2, valor:-v, doc:cartao});
+      lancamentos.push({data:iso, hist:desc2, valor:valorApp, doc:cartao});
     }
 
     if(!lancamentos.length){
@@ -985,7 +960,11 @@
     lancamentos.forEach(l=>{
       const id = l.data+"|cartao|"+l.valor.toFixed(2)+"|"+l.hist.slice(0,42);
       if(existentes.has(id)){repetidos++;return;}
-      const c = classificar(l.hist, l.valor);
+      // valor positivo vindo do cartão = estorno/crédito de compra
+      let c = classificar(l.hist, l.valor);
+      if(l.valor > 0 && c.categoria==="Receita de cliente"){
+        c = {categoria:"Reembolso e estorno", vinculo:"PF"};
+      }
       if(c.categoria!=="Sem categoria") prontos++;
       dados.lancamentos.push({id, data:l.data, hist:l.hist, valor:l.valor,
         doc:l.doc, categoria:c.categoria, vinculo:c.vinculo, obs:"", origem:"cartao"});
