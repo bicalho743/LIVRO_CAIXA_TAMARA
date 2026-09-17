@@ -936,17 +936,20 @@
       const [,dd,mm,desc,valStr] = m;
       const desc2 = desc.trim();
       if(/^(PGTO|PAGTO|PAGAMENTO|SALDO FATURA)/i.test(desc2)) continue;
-      if(/^ANTEC\s+\d{2}\/\d{2}-/i.test(desc2)) continue;
+      // ANTEC = parcelas antecipadas cobradas pelo banco (ex: cancelamento de compra parcelada)
+      // devem entrar normalmente — são cobranças reais
+      const ehAntec = /^ANTEC\s+\d{2}\/\d{2}-/i.test(desc2);
+      // limpar descrição dos ANTEC: "ANTEC 03/12-AMAZONMKTPLC*LE INDA" → "AMAZONMKTPLC*LE INDA (ANTEC 03/12)"
+      const desc3 = ehAntec
+        ? desc2.replace(/^ANTEC\s+(\d{2}\/\d{2})-\s*/i, (_, p)=>``).trim() + ` (antecipada ${desc2.match(/^ANTEC\s+(\d{2}\/\d{2})/i)[1]})`
+        : desc2;
       const v = parseFloat(valStr.replace(/\./g,"").replace(",","."));
       if(isNaN(v)||v===0) continue;
-      // positivo na fatura = compra (saída no app = negativo)
-      // negativo na fatura = estorno/crédito de compra (entrada no app = positivo)
       const valorApp = v > 0 ? -v : Math.abs(v);
-      // compras com mês > mês de fechamento são do ano anterior à fatura
       const mesCompra = parseInt(mm);
       const ano = mesCompra > mesFechamento ? anoFatura - 1 : anoFatura;
       const iso = `${ano}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
-      lancamentos.push({data:iso, hist:desc2, valor:valorApp, doc:cartao});
+      lancamentos.push({data:iso, hist:desc3, valor:valorApp, doc:cartao});
     }
 
     if(!lancamentos.length){
