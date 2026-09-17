@@ -956,6 +956,26 @@
       avisar("Não encontrei lançamentos no PDF. Verifique se é a fatura do BB Ourocard.",true); return;
     }
 
+    // gerar já a(s) parcela(s) futura(s) de uma compra parcelada (ex.: "PARC 01/02")
+    // para não depender de importar a fatura do mês seguinte para ela aparecer.
+    // Só projeta a partir da parcela 01 (é a única com data-base confiável) e
+    // assume valor igual em todas as parcelas.
+    const parcRE = /PARC\s+(\d{2})\/(\d{2})/i;
+    const jaTem = (data,hist) => lancamentos.some(x=>x.data===data && x.hist===hist);
+    lancamentos.slice().forEach(l=>{
+      const pm = l.hist.match(parcRE);
+      if(!pm) return;
+      const atual = parseInt(pm[1]), total = parseInt(pm[2]);
+      if(atual!==1 || total<=1) return;
+      for(let p=2; p<=total; p++){
+        const numStr = String(p).padStart(2,"0");
+        const histFutura = l.hist.replace(parcRE, `PARC ${numStr}/${pm[2]}`);
+        const dataFutura = ajustarParc(l.data, `PARC ${numStr}/${pm[2]}`);
+        if(jaTem(dataFutura,histFutura)) continue; // já veio na própria fatura
+        lancamentos.push({data:dataFutura, hist:histFutura, valor:l.valor, doc:l.doc});
+      }
+    });
+
     const existentes = new Set(dados.lancamentos.map(l=>l.id));
     let novos=0, repetidos=0, prontos=0;
     const mesesTocados = new Set();
