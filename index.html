@@ -950,7 +950,7 @@
       const ano = mesCompra > mesFechamento ? anoFatura - 1 : anoFatura;
       const iso = `${ano}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
       // a fatura sempre imprime a data ORIGINAL da compra, mesmo na parcela 02/04, 03/04...
-      // por isso é preciso deslocar aqui também, não só nas parcelas futuras projetadas abaixo
+      // por isso a data é deslocada aqui; nenhuma parcela é lançada antes de vir na própria fatura
       lancamentos.push({data:ajustarParc(iso, desc3), hist:desc3, valor:valorApp, doc:cartao});
     }
 
@@ -958,27 +958,10 @@
       avisar("Não encontrei lançamentos no PDF. Verifique se é a fatura do BB Ourocard.",true); return;
     }
 
-    // gerar já a(s) parcela(s) futura(s) de uma compra parcelada (ex.: "PARC 01/02")
-    // para não depender de importar a fatura do mês seguinte para ela aparecer.
-    // Só projeta a partir da parcela 01 (é a única com data-base confiável) e
-    // assume valor igual em todas as parcelas.
-    // tolerante a variações de extração do PDF.js: "PARC 1/2", "PARC 01 / 02", "PARC01/02"...
-    const parcRE = /PARC\s*(\d{1,2})\s*\/\s*(\d{1,2})/i;
-    const jaTem = (data,hist) => lancamentos.some(x=>x.data===data && x.hist===hist);
-    lancamentos.slice().forEach(l=>{
-      const pm = l.hist.match(parcRE);
-      if(!pm) return;
-      const atual = parseInt(pm[1]), total = parseInt(pm[2]);
-      if(atual!==1 || total<=1) return;
-      const totalStr = String(total).padStart(2,"0");
-      for(let p=2; p<=total; p++){
-        const numStr = String(p).padStart(2,"0");
-        const histFutura = l.hist.replace(parcRE, `PARC ${numStr}/${totalStr}`);
-        const dataFutura = ajustarParc(l.data, `PARC ${numStr}/${totalStr}`);
-        if(jaTem(dataFutura,histFutura)) continue; // já veio na própria fatura
-        lancamentos.push({data:dataFutura, hist:histFutura, valor:l.valor, doc:l.doc});
-      }
-    });
+    // Nunca projetar parcelas futuras aqui: cada parcela só entra quando a fatura
+    // daquele mês é realmente importada. A data de cada uma já vem ajustada
+    // (ajustarParc, aplicado acima ao extrair), então só muda a data — nada é
+    // lançado pra frente antes de existir na fatura correspondente.
 
     const existentes = new Set(dados.lancamentos.map(l=>l.id));
     let novos=0, repetidos=0, prontos=0;
