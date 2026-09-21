@@ -38,7 +38,23 @@
   .conta-ativa-badge{font-size:12px;letter-spacing:.1em;color:var(--cinza);
                      padding:10px 0 0;font-weight:500}
   .conta-tab[data-conta=pj].ativa{color:#1E8A5F;border-bottom-color:#1E8A5F}
-  .conta-tab[data-conta=all].ativa{color:#5B4FCF;border-bottom-color:#5B4FCF}
+  .conta-tab[data-conta=cpf],.conta-tab[data-conta=pj]{font-size:15px;font-weight:500;padding:13px 26px}
+  .conta-tab[data-conta=cpf].ativa{color:#2E86DE;border-bottom-color:#2E86DE}
+  .conta-sep{margin-left:auto;align-self:center;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cinza);padding-right:4px}
+  .conta-tab.banco{font-size:12px;padding:11px 14px}
+  .conta-tab.banco.ativa{color:#5B4FCF;border-bottom-color:#5B4FCF}
+  .limite-mei{border:1px solid var(--linha);border-radius:4px;padding:14px 16px;margin:16px 0 4px;background:#fff}
+  .limite-mei .barra{position:relative;height:12px;background:var(--linha-clara);border-radius:6px;margin:10px 0 6px;overflow:visible}
+  .limite-mei .barra i{display:block;height:100%;border-radius:6px}
+  .limite-mei .marca{position:absolute;top:-4px;bottom:-4px;width:2px;background:#C0392B}
+  .limite-mei .leg{display:flex;justify-content:space-between;font-size:11.5px;color:var(--cinza)}
+  .sep-painel{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 24px}
+  .sep-card{border:1px solid var(--linha);border-radius:4px;padding:12px 14px;border-left:4px solid var(--sc)}
+  .sep-card .t{font-size:12px;color:var(--cinza);line-height:1.35;min-height:32px}
+  .sep-card .v{font-family:var(--serif);font-size:22px;font-variant-numeric:tabular-nums;margin-top:4px}
+  .sep-card .s{font-size:11.5px;color:var(--cinza);margin-top:2px}
+  .sep-card.clic{cursor:pointer}.sep-card.clic:hover{background:var(--marfim)}
+  @media (max-width:900px){.sep-painel{grid-template-columns:1fr 1fr}}
 
   /* ---- tela de login ---- */
   #telaLogin{position:fixed;inset:0;background:var(--papel);display:flex;align-items:center;
@@ -379,9 +395,11 @@
   </header>
 
   <div class="conta-tabs" id="contaTabs">
-    <button class="conta-tab ativa" data-conta="cpf">CPF — Pessoal</button>
-    <button class="conta-tab" data-conta="pj">CNPJ — MEI</button>
-    <button class="conta-tab" data-conta="all">Consolidado</button>
+    <button class="conta-tab ativa" data-conta="cpf">👤 Pessoal</button>
+    <button class="conta-tab" data-conta="pj">🏢 Negócio — MEI</button>
+    <span class="conta-sep">Conferir com o banco:</span>
+    <button class="conta-tab banco" data-conta="bcpf">Extrato conta CPF</button>
+    <button class="conta-tab banco" data-conta="bpj">Extrato conta CNPJ</button>
   </div>
   <div class="abas" id="abas" role="tablist"></div>
   <div class="corpo" id="corpo"></div>
@@ -736,6 +754,25 @@
         '</div>').join("");
     }
 
+    function painelSeparacao(){
+      const per=dados.lancamentos.filter(l=>noPeriodo(l)&&!l.ignorado);
+      const r=resumoSeparacao(per);
+      const card=(cor,t,ls,sub,acao)=>'<div class="sep-card'+(acao&&ls.length?' clic':'')+'" style="--sc:'+(ls.length?cor:"#1E8A5F")+'"'+
+        (acao&&ls.length?' data-sepir="'+acao+'"':'')+'><div class="t">'+t+'</div>'+
+        '<div class="v" style="color:'+(ls.length?cor:"#1E8A5F")+'">'+(ls.length?'R$ '+brl(r.sum(ls)):'✓ ok')+'</div>'+
+        '<div class="s">'+(ls.length?ls.length+' lançamento'+(ls.length>1?'s':'')+' · '+sub:'nada a corrigir')+'</div></div>';
+      const ano=ui.mes==="tudo"?(todosMeses[todosMeses.length-1]||String(new Date().getFullYear())).slice(0,4):ui.mes.slice(0,4);
+      return '<div class="tit-secao" style="margin:4px 0 12px"><h3>Separação pessoal × negócio</h3></div>'+
+        '<div class="sep-painel">'+
+          card("#C0392B","Receita do negócio recebida fora da conta CNPJ",r.recFora,"ideal: receber na conta PJ","pj")+
+          card("#E08E0B","Despesas do negócio pagas com dinheiro pessoal",r.despFora,"o negócio deve reembolsar você","pj")+
+          card("#C0392B","Despesas pessoais pagas pela conta CNPJ",r.pesNoPj,"retire como pró-labore","cpf")+
+          '<div class="sep-card" style="--sc:#5B4FCF"><div class="t">Pró-labore retirado no período</div>'+
+            '<div class="v" style="color:#5B4FCF">R$ '+brl(r.sum(r.prolab))+'</div>'+
+            '<div class="s">'+(r.prolab.length?r.prolab.length+' transferência'+(r.prolab.length>1?'s':''):'nenhuma retirada registrada')+'</div></div>'+
+        '</div>'+limiteMeiHTML(ano);
+    }
+
     function coluna(conta){
       const r=resumo(conta);
       const saldo=r.tE-r.tS;
@@ -798,7 +835,7 @@
         '</div></div>'+
       '</div>'+
       (dados.lancamentos.length
-        ? '<div class="dash-grid">'+coluna("pf")+coluna("pj")+'</div>'+tabelaMes
+        ? painelSeparacao()+'<div class="dash-grid">'+coluna("pf")+coluna("pj")+'</div>'+tabelaMes
         : '<div class="vazio"><p class="num">Sem lançamentos ainda</p><p>Importe um extrato ou use + Lançamento.</p></div>'+
           '<div style="text-align:center"><button class="bt" data-dadd="pf">+ Lançamento</button></div>');
 
@@ -806,6 +843,12 @@
     corpo.onclick=e=>{
       const md=e.target.closest("[data-dmodo]");
       if(md){ ui.dashModo=md.dataset.dmodo; renderDashboard(); return; }
+      const sp=e.target.closest("[data-sepir]");
+      if(sp){ ui.conta=sp.dataset.sepir; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.busca="";
+        ui.origem=sp.dataset.sepir==="pj"?"":"pj";
+        document.getElementById("btDash").classList.remove("ativo");
+        document.querySelectorAll(".conta-tab").forEach(b=>b.classList.toggle("ativa",b.dataset.conta===ui.conta));
+        render(); return; }
       const ds=e.target.closest("[data-dsep]");
       if(ds){ ui.dashSep=ds.dataset.dsep; renderDashboard(); return; }
       const ad=e.target.closest("[data-dadd]");
@@ -814,8 +857,9 @@
       if(ln){
         const cat=ln.dataset.dcat, lado=ln.dataset.dconta, tipo=ln.dataset.dtipo;
         // ir para a tabela de lançamentos já filtrada
-        if(ui.dashSep==="conta"){ ui.conta=lado==="pj"?"pj":"cpf"; ui.vinculo=""; }
-        else { ui.conta="all"; ui.vinculo=lado==="pj"?"PJ":"PF"; }
+        if(ui.dashSep==="conta"){ ui.conta=lado==="pj"?"bpj":"bcpf"; }
+        else { ui.conta=lado==="pj"?"pj":"cpf"; }
+        ui.vinculo=""; ui.origem="";
         ui.cat=cat; ui.tipo=tipo; ui.busca="";
         // ui.mes continua o período escolhido no dashboard ("tudo" ou o mês)
         document.getElementById("btDash").classList.remove("ativo");
@@ -1259,10 +1303,43 @@
            (novos?" · "+prontos+" já classificado"+(prontos===1?"":"s"):"")+
            (repetidos?" · "+repetidos+" já existia"+(repetidos===1?"":"m"):""));
   }
+  const visaoNatureza = () => ui.conta==="cpf"||ui.conta==="pj";
   function lancDaConta(){
-    if(ui.conta==="cpf") return dados.lancamentos.filter(l=>l.origem!=="pj");
-    if(ui.conta==="pj")  return dados.lancamentos.filter(l=>l.origem==="pj");
+    if(ui.conta==="cpf")  return dados.lancamentos.filter(l=>!ehNegocio(l));
+    if(ui.conta==="pj")   return dados.lancamentos.filter(l=>ehNegocio(l));
+    if(ui.conta==="bcpf") return dados.lancamentos.filter(l=>l.origem!=="pj");
+    if(ui.conta==="bpj")  return dados.lancamentos.filter(l=>l.origem==="pj");
     return dados.lancamentos;
+  }
+  const nomeOrigem = l => l.origem==="cartao"?"Cartão de crédito":l.origem==="pj"?"Conta CNPJ":"Conta CPF";
+  const RECEITA_CATS = new Set(["Receita de cliente","Produtos para venda"]);
+  function limiteMeiHTML(ano){
+    const rec=dados.lancamentos.filter(l=>!l.ignorado&&l.valor>0&&ehNegocio(l)&&RECEITA_CATS.has(l.categoria)&&l.data.slice(0,4)===String(ano));
+    const tot=rec.reduce((s,l)=>s+l.valor,0);
+    const noCpf=rec.filter(l=>l.origem!=="pj").reduce((s,l)=>s+l.valor,0);
+    const LIM=81000, TOL=97200, pct=Math.min(tot/TOL*100,100);
+    const c=tot>TOL?"#C0392B":tot>LIM?"#E08E0B":tot>LIM*0.8?"#E08E0B":"#1E8A5F";
+    const msg=tot>TOL?"Acima de R$ 97.200: risco de desenquadramento retroativo. Converse com seu contador."
+      :tot>LIM?"Acima de R$ 81.000: até R$ 97.200 você segue MEI até dezembro, com DAS complementar, e vira ME em janeiro."
+      :tot>LIM*0.8?"Acima de 80% do limite anual. Vale planejar o restante do ano."
+      :"Dentro do limite anual do MEI.";
+    return '<div class="limite-mei"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">'+
+      '<span class="rot" style="margin:0">Limite MEI '+ano+' · receita bruta</span>'+
+      '<span style="font-family:var(--serif);font-size:22px;color:'+c+'">R$ '+brl(tot)+' <small style="font-size:13px;color:var(--cinza)">de R$ 81.000</small></span></div>'+
+      '<div class="barra"><i style="width:'+pct.toFixed(1)+'%;background:'+c+'"></i>'+
+      '<span class="marca" style="left:'+(LIM/TOL*100).toFixed(1)+'%" title="R$ 81.000"></span></div>'+
+      '<div class="leg"><span>'+msg+'</span><span>| 81 mil &nbsp; 97,2 mil</span></div>'+
+      (noCpf?'<p class="sub" style="margin-top:6px">R$ '+brl(noCpf)+' dessa receita entrou pela conta CPF — receita da mesma atividade recebida no CPF também conta para o limite (Res. CGSN 183/2025).</p>':'')+
+      '</div>';
+  }
+  function resumoSeparacao(ls){
+    const neg=ls.filter(ehNegocio), pes=ls.filter(l=>!ehNegocio(l));
+    const sum=a=>a.reduce((s,l)=>s+Math.abs(l.valor),0);
+    const recFora=neg.filter(l=>l.valor>0&&l.origem!=="pj"&&RECEITA_CATS.has(l.categoria));
+    const despFora=neg.filter(l=>l.valor<0&&l.origem!=="pj"&&l.categoria!=="Pró-labore (retirada MEI)");
+    const pesNoPj=pes.filter(l=>l.origem==="pj"&&l.categoria!=="Pró-labore (retirada MEI)");
+    const prolab=ls.filter(l=>l.categoria==="Pró-labore (retirada MEI)"&&l.valor<0);
+    return {recFora,despFora,pesNoPj,prolab,sum};
   }
   const mesesComDados = () => [...new Set(lancDaConta().map(l=>l.data.slice(0,7)))].sort();
 
@@ -1277,6 +1354,7 @@
       if(b && !(l.hist.toLowerCase().includes(b)||(l.obs||"").toLowerCase().includes(b))) return false;
       if(ui.cat && l.categoria!==ui.cat) return false;
       if(ui.vinculo && l.vinculo!==ui.vinculo) return false;
+      if(ui.origem){ const o=l.origem==="cartao"?"cartao":l.origem==="pj"?"pj":"pf"; if(o!==ui.origem) return false; }
       if(ui.tipo==="e" && l.valor<=0) return false;
       if(ui.tipo==="s" && l.valor>=0) return false;
       return true;
@@ -1388,7 +1466,7 @@
     if(!meses.length){ ui.mes=null; }
     else if(!ui.mes||(ui.mes!=="tudo"&&ui.mes!=="comparar"&&ui.mes!=="dre"&&!meses.includes(ui.mes))) ui.mes=meses[meses.length-1];
     if(ui.mes==="comparar"&&meses.length<2) ui.mes=meses[meses.length-1];
-    if(ui.mes==="dre"&&ui.conta==="cpf") ui.mes=meses[meses.length-1];
+    if(ui.mes==="dre"&&ui.conta!=="pj") ui.mes=meses[meses.length-1];
 
     // abas
     const abas=$("#abas");
@@ -1397,7 +1475,7 @@
     ).join("") + (meses.length>=1?
       '<button class="aba" role="tab" data-mes="tudo" aria-selected="'+(ui.mes==="tudo")+'">Tudo</button>'+
       (meses.length>1?'<button class="aba" role="tab" data-mes="comparar" aria-selected="'+(ui.mes==="comparar")+'">Comparar</button>':"")+
-      (ui.conta!=="cpf"?'<button class="aba" role="tab" data-mes="dre" aria-selected="'+(ui.mes==="dre")+'" style="border-top-color:#8E44AD;font-weight:600">DRE MEI</button>':"")
+      (ui.conta==="pj"?'<button class="aba" role="tab" data-mes="dre" aria-selected="'+(ui.mes==="dre")+'" style="border-top-color:#8E44AD;font-weight:600">DRE MEI</button>':"")
       :"")+
       '<button class="aba" role="tab" data-mes="regras" aria-selected="'+(ui.mes==="regras")+'" style="border-top-color:#0B8793">⚙ Regras</button>';
 
@@ -1417,10 +1495,13 @@
     const ent=caixa.filter(l=>l.valor>0).reduce((s,l)=>s+l.valor,0);
     const sai=caixa.filter(l=>l.valor<0).reduce((s,l)=>s+l.valor,0);
     const res=ent+sai;
-    const inicial = ui.mes==="tudo" ? (dados.saldos[meses[0]]||0) : (dados.saldos[ui.mes]||0);
+    const inicial = visaoNatureza()?0:(ui.mes==="tudo" ? (dados.saldos[meses[0]]||0) : (dados.saldos[ui.mes]||0));
+    const sepR = resumoSeparacao(lista);
+    const foraLugar = ui.conta==="pj" ? sepR.recFora.concat(sepR.despFora) : ui.conta==="cpf" ? sepR.pesNoPj : [];
+    const porOrigem = {}; lista.forEach(l=>{ const o=nomeOrigem(l); porOrigem[o]=porOrigem[o]||{e:0,s:0}; if(l.valor>0) porOrigem[o].e+=l.valor; else porOrigem[o].s-=l.valor; });
     const serie=saldoDiario(caixa,inicial);
     const fim=serie.length?serie[serie.length-1].saldo:inicial;
-    const diasNeg=serie.filter(d=>d.saldo<0);
+    const diasNeg=visaoNatureza()?[]:serie.filter(d=>d.saldo<0);
     const fundo=diasNeg.length?Math.min(...diasNeg.map(d=>d.saldo)):0;
 
     // categorias
@@ -1444,11 +1525,16 @@
         cartao("Entradas",ent,"pos",caixa.filter(l=>l.valor>0).length+" lançamentos","#1E8A5F")+
         cartao("Saídas",sai,"neg",caixa.filter(l=>l.valor<0).length+" lançamentos","#E08E0B")+
         cartao("Resultado",res,res<0?"neg":"pos",res<0?"o mês fechou no vermelho":"sobrou no mês",res<0?"#C0392B":"#1E8A5F")+
-        cartao("Saldo final",fim,fim<0?"neg":"",ui.mes==="tudo"?"acumulado":"em "+rotuloMes(ui.mes),fim<0?"#C0392B":"#2E86DE")+
+        (visaoNatureza()
+          ? cartao("Pela conta errada",foraLugar.reduce((s,l)=>s+Math.abs(l.valor),0),"",
+              foraLugar.length?foraLugar.length+" lançamento"+(foraLugar.length>1?"s":"")+(ui.conta==="pj"?" pela conta CPF/cartão pessoal":" pela conta CNPJ"):"tudo separado ✓",
+              foraLugar.length?"#C0392B":"#1E8A5F")
+          : cartao("Saldo final",fim,fim<0?"neg":"",ui.mes==="tudo"?"acumulado":"em "+rotuloMes(ui.mes),fim<0?"#C0392B":"#2E86DE"))+
       '</section>'+
 
+      (ui.conta==="pj"?limiteMeiHTML(/^\d{4}/.test(ui.mes||"")?ui.mes.slice(0,4):meses[meses.length-1].slice(0,4)):"")+
       '<div class="conta-ativa-badge">'+
-        (ui.conta==="cpf"?'💼 CPF — Pessoal':ui.conta==="pj"?'🏢 CNPJ — MEI':'⚖️ Consolidado')+
+        (ui.conta==="cpf"?'👤 Pessoal — de todas as contas e do cartão':ui.conta==="pj"?'🏢 Negócio — MEI — de todas as contas e do cartão':ui.conta==="bpj"?'🏦 Extrato da conta CNPJ, como no banco':'🏦 Extrato da conta CPF, como no banco')+
       '</div>'+
 
       (diasNeg.length?'<div class="alerta"><div><b>'+diasNeg.length+' dia'+(diasNeg.length===1?"":"s")+
@@ -1472,14 +1558,21 @@
             entradas.map(([c,v])=>catLinha(c,v,v/maiorEnt,true)).join(""):"")+
         '</div>'+
         '<div>'+
-          '<div class="tit-secao"><h3>Saldo dia a dia</h3></div>'+
-          grafico(serie,inicial)+
-          '<div class="divisao">'+
+          (visaoNatureza()
+          ? '<div class="tit-secao"><h3>Por onde passou</h3></div>'+
+            Object.entries(porOrigem).map(([o,x])=>'<div class="cat-linha" style="cursor:default"><span class="cat-nome">'+
+              (o==="Cartão de crédito"?"💳 ":o==="Conta CNPJ"?"🏢 ":"👤 ")+o+'</span><span class="cat-val">'+
+              (x.e?'<span class="pos">+'+brl(x.e)+'</span> ':'')+(x.s?'−'+brl(x.s):'')+'</span></div>').join("")+
+            '<p class="sub" style="margin-top:10px">'+(ui.conta==="pj"
+              ?"Boa prática: toda receita e despesa do negócio pela conta CNPJ; para você, só pró-labore."
+              :"Boa prática: gastos pessoais só pela conta CPF e cartão pessoal.")+'</p>'
+          : '<div class="tit-secao"><h3>Saldo dia a dia</h3></div>'+grafico(serie,inicial))+
+          (visaoNatureza()?'':'<div class="divisao">'+
             '<div><span class="rot">Negócio</span><div class="num '+(pjEnt+pjSai<0?"neg":"pos")+'"><small>R$</small>'+brl(pjEnt+pjSai)+'</div>'+
               '<p class="sub">entrou '+brl(pjEnt)+' · saiu '+brl(Math.abs(pjSai))+'</p></div>'+
             '<div><span class="rot">Pessoal</span><div class="num neg"><small>R$</small>'+brl(pfSai)+'</div>'+
               '<p class="sub">gasto do mês</p></div>'+
-          '</div>'+
+          '</div>')+
         '</div>'+
       '</div>'+
 
@@ -1487,7 +1580,8 @@
         '<input type="search" id="fBusca" placeholder="Buscar estabelecimento ou observação" value="'+esc(ui.busca)+'">'+
         selectFiltro("fCat",ui.cat,"Todas as categorias",CATEGORIAS)+
         selectFiltro("fTipo",ui.tipo,"Entradas e saídas",[["e","Só entradas"],["s","Só saídas"]])+
-        selectFiltro("fVinc",ui.vinculo,"Negócio e pessoal",[["PJ","Só negócio"],["PF","Só pessoal"]])+
+        (visaoNatureza()?'':selectFiltro("fVinc",ui.vinculo,"Negócio e pessoal",[["PJ","Só negócio"],["PF","Só pessoal"]]))+
+        selectFiltro("fOrig",ui.origem||"","Todas as origens",[["pf","👤 Conta CPF"],["pj","🏢 Conta CNPJ"],["cartao","💳 Cartão de crédito"]])+
         '<span class="conta" id="conta"></span>'+
       '</div>'+
       '<div class="rolagem"><table id="tabelaLanc"><thead><tr>'+
@@ -1895,7 +1989,7 @@
     ).join("") + (meses.length>=1?
       '<button class="aba" role="tab" data-mes="tudo" aria-selected="false">Tudo</button>'+
       (meses.length>1?'<button class="aba" role="tab" data-mes="comparar" aria-selected="false">Comparar</button>':"")+
-      (ui.conta!=="cpf"?'<button class="aba" role="tab" data-mes="dre" aria-selected="false" style="border-top-color:#8E44AD;font-weight:600">DRE MEI</button>':"")
+      (ui.conta==="pj"?'<button class="aba" role="tab" data-mes="dre" aria-selected="false" style="border-top-color:#8E44AD;font-weight:600">DRE MEI</button>':"")
       :"")+
       '<button class="aba" role="tab" data-mes="regras" aria-selected="true" style="border-top-color:#0B8793">⚙ Regras</button>';
   }
@@ -2079,7 +2173,8 @@
     });
     $("#fCat").onchange=e=>{ui.cat=e.target.value;tabela();};
     $("#fTipo").onchange=e=>{ui.tipo=e.target.value;tabela();};
-    $("#fVinc").onchange=e=>{ui.vinculo=e.target.value;tabela();};
+    const fv=$("#fVinc"); if(fv) fv.onchange=e=>{ui.vinculo=e.target.value;tabela();};
+    $("#fOrig").onchange=e=>{ui.origem=e.target.value;tabela();};
 
     // clique nas barras de categoria → filtra tabela e rola até ela
     document.getElementById("corpo").addEventListener("keydown",e=>{
@@ -2152,6 +2247,7 @@
         const cats=catsParaVinculo(l.vinculo);
         if(!cats.includes(l.categoria)) l.categoria="Sem categoria";
         aprender(l); salvar(); render();
+        if(visaoNatureza()) avisar("Movido para "+(l.vinculo==="PJ"?"🏢 Negócio":"👤 Pessoal")+".");
       }
       if(bt.dataset.c==="riscar"){
         l.ignorado = !l.ignorado; salvar(); render();
@@ -2220,7 +2316,7 @@
     const bt=e.target.closest(".conta-tab"); if(!bt) return;
     document.getElementById("btDash").classList.remove("ativo");
     ui.conta=bt.dataset.conta;
-    ui.mes=null; ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo="";
+    ui.mes=null; ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem="";
     [...document.querySelectorAll(".conta-tab")].forEach(b=>b.classList.toggle("ativa",b===bt));
     render();
   });
