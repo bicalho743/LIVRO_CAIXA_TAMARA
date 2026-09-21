@@ -62,6 +62,13 @@
   .login-rodape{font-size:11.5px;color:var(--cinza);margin-top:28px;line-height:1.6}
 
   /* ---- dashboard CPF × CNPJ ---- */
+  .bt-dash{display:flex;flex-direction:column;align-items:flex-start;gap:2px;font-family:var(--sans);
+           font-size:18px;font-weight:600;color:#fff;background:linear-gradient(135deg,#2E86DE,#1E8A5F);
+           border:none;border-radius:8px;padding:14px 26px;cursor:pointer;box-shadow:0 6px 18px rgba(30,138,95,.28);
+           transition:transform .12s,box-shadow .12s}
+  .bt-dash small{font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;opacity:.9}
+  .bt-dash:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(30,138,95,.35)}
+  .bt-dash.ativo{outline:3px solid #F1C40F;outline-offset:2px}
   .conta-tab[data-conta=dash]{margin-left:auto}
   .conta-tab[data-conta=dash].ativa{color:#C0392B;border-bottom-color:#C0392B}
   .dash-topo{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin:24px 0 18px}
@@ -355,6 +362,7 @@
       <h1>Livro-caixa</h1>
       <p>Tâmara Cavalcante · Organizer</p>
     </div>
+    <button id="btDash" class="bt-dash">📊 Dashboard<small>Pessoal × Negócio</small></button>
     <div id="barraUsuario" style="display:flex;align-items:center;gap:8px;font-family:var(--sans)"></div>
     <div class="acoes">
       <button class="bt" id="btImportar">Importar extrato do BB</button>
@@ -374,7 +382,6 @@
     <button class="conta-tab ativa" data-conta="cpf">CPF — Pessoal</button>
     <button class="conta-tab" data-conta="pj">CNPJ — MEI</button>
     <button class="conta-tab" data-conta="all">Consolidado</button>
-    <button class="conta-tab" data-conta="dash">📊 Dashboard CPF × CNPJ</button>
   </div>
   <div class="abas" id="abas" role="tablist"></div>
   <div class="corpo" id="corpo"></div>
@@ -674,10 +681,17 @@
   }
 
   /* ================= dashboard CPF × CNPJ ================= */
-  function contaDe(l){ return l.origem==="pj"?"pj":"pf"; }
+  // categorias que são sempre do negócio, mesmo se o vínculo ficou "Pessoal"
+  const CATS_SO_NEGOCIO=new Set(["Receita de cliente","Serviços do negócio","Produtos para venda","Material de trabalho"]);
+  function ehNegocio(l){ return l.vinculo==="PJ"||CATS_SO_NEGOCIO.has(l.categoria); }
+  function contaDe(l){
+    if(ui.dashSep==="conta") return l.origem==="pj"?"pj":"pf";
+    return ehNegocio(l)?"pj":"pf";
+  }
 
   function renderDashboard(){
     if(!ui.dashModo) ui.dashModo="cat";
+    if(!ui.dashSep) ui.dashSep="nat";
     const todosMeses=[...new Set(dados.lancamentos.map(l=>l.data.slice(0,7)))].sort();
     if(!ui.mes||(ui.mes!=="tudo"&&!todosMeses.includes(ui.mes))) ui.mes="tudo";
 
@@ -725,7 +739,7 @@
     function coluna(conta){
       const r=resumo(conta);
       const saldo=r.tE-r.tS;
-      const titulo=conta==="pj"?"CNPJ — MEI":"CPF — Pessoal";
+      const titulo=ui.dashSep==="conta"?(conta==="pj"?"Conta CNPJ":"Conta CPF"):(conta==="pj"?"Negócio — MEI":"Pessoal");
       const dc=conta==="pj"?"#1E8A5F":"#2E86DE";
       return '<section class="dash-col" style="--dc:'+dc+'">'+
         '<h2>'+titulo+'<button class="bt vazado" data-dadd="'+conta+'" style="font-size:12px;padding:6px 12px">+ Lançamento</button></h2>'+
@@ -740,7 +754,9 @@
         lista(r.sai,r.tS,conta,"s")+
         '<p class="dash-nota">'+r.ls.length+' lançamentos'+
           (r.semCat?' · <b style="color:var(--ouro)">'+r.semCat+' sem categoria</b>':'')+
-          (r.negocioNoCpf?' · '+brl(r.negocioNoCpf)+' em gastos do negócio pagos por esta conta':'')+
+          (ui.dashSep==="conta"&&r.negocioNoCpf?' · '+brl(r.negocioNoCpf)+' em gastos do negócio pagos por esta conta':'')+
+          (ui.dashSep==="nat"&&conta==="pj"&&r.ls.some(l=>l.origem!=="pj")
+            ?' · '+r.ls.filter(l=>l.origem!=="pj").length+' movimentados pela conta CPF':'')+
         '</p>'+
       '</section>';
     }
@@ -753,7 +769,7 @@
                             .reduce((s,l)=>s+Math.abs(l.valor),0);
       tabelaMes='<div class="tit-secao" style="margin-top:40px"><h3>Mês a mês</h3></div>'+
         '<div class="rolagem"><table class="dash-mes"><thead>'+
-        '<tr><th></th><th class="grp" colspan="3" style="color:#2E86DE">CPF — Pessoal</th><th class="grp" colspan="3" style="color:#1E8A5F">CNPJ — MEI</th></tr>'+
+        '<tr><th></th><th class="grp" colspan="3" style="color:#2E86DE">'+(ui.dashSep==="conta"?"Conta CPF":"Pessoal")+'</th><th class="grp" colspan="3" style="color:#1E8A5F">'+(ui.dashSep==="conta"?"Conta CNPJ":"Negócio — MEI")+'</th></tr>'+
         '<tr><th>Mês</th><th>Entrou</th><th>Saiu</th><th>Saldo</th><th>Entrou</th><th>Saiu</th><th>Saldo</th></tr></thead><tbody>'+
         todosMeses.slice().reverse().map(m=>{
           const a=soma(m,"pf","e"),b=soma(m,"pf","s"),c=soma(m,"pj","e"),d=soma(m,"pj","s");
@@ -771,10 +787,15 @@
         '<span class="sub">'+(ui.dashModo==="cat"
           ? "Por categoria: compras do cartão entram na data da compra; o pagamento da fatura fica de fora para não contar duas vezes."
           : "Caixa: só o que passou pelas contas bancárias, como no extrato. Compras do cartão aparecem somadas no pagamento da fatura.")+'</span></div>'+
+        '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+        '<div class="dash-modo">'+
+          '<button data-dsep="nat" class="'+(ui.dashSep==="nat"?"on":"")+'">Pessoal × Negócio</button>'+
+          '<button data-dsep="conta" class="'+(ui.dashSep==="conta"?"on":"")+'">Conta CPF × CNPJ</button>'+
+        '</div>'+
         '<div class="dash-modo">'+
           '<button data-dmodo="cat" class="'+(ui.dashModo==="cat"?"on":"")+'">Por categoria</button>'+
           '<button data-dmodo="caixa" class="'+(ui.dashModo==="caixa"?"on":"")+'">Caixa (extrato)</button>'+
-        '</div>'+
+        '</div></div>'+
       '</div>'+
       (dados.lancamentos.length
         ? '<div class="dash-grid">'+coluna("pf")+coluna("pj")+'</div>'+tabelaMes
@@ -785,6 +806,8 @@
     corpo.onclick=e=>{
       const md=e.target.closest("[data-dmodo]");
       if(md){ ui.dashModo=md.dataset.dmodo; renderDashboard(); return; }
+      const ds=e.target.closest("[data-dsep]");
+      if(ds){ ui.dashSep=ds.dataset.dsep; renderDashboard(); return; }
       const ad=e.target.closest("[data-dadd]");
       if(ad){ adicionarManual(ad.dataset.dadd); return; }
       const ln=e.target.closest("[data-dcat]");
@@ -830,6 +853,7 @@
         dados.saldos      = d.saldos||{};
         dados.regras      = (d.regras&&d.regras.length)?d.regras:REGRAS_PADRAO.slice();
         dados.prolabore   = d.prolabore||0;
+        dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
         // migração: remover lançamentos do cartão com data > hoje+6 meses (bug antigo)
         const limiteMs = Date.now() + 180*24*60*60*1000;
         let corrigidos = 0;
@@ -2074,6 +2098,7 @@
       const c=e.target.dataset.c;
       if(c==="categoria"){
         l.categoria=e.target.value;
+        if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ";
         // oferecer criar regra para o estabelecimento
         const termo=mercado(l.hist);
         const regraExiste=dados.regras.some(r=>r.termo.toUpperCase()===termo.toUpperCase());
@@ -2188,8 +2213,15 @@
     }
   });
   // seletor de conta
+  document.getElementById("btDash").onclick=()=>{
+    ui.conta="dash"; ui.mes=null;
+    document.querySelectorAll(".conta-tab").forEach(b=>b.classList.remove("ativa"));
+    document.getElementById("btDash").classList.add("ativo");
+    render();
+  };
   document.getElementById("contaTabs").addEventListener("click",e=>{
     const bt=e.target.closest(".conta-tab"); if(!bt) return;
+    document.getElementById("btDash").classList.remove("ativo");
     ui.conta=bt.dataset.conta;
     ui.mes=null; ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo="";
     [...document.querySelectorAll(".conta-tab")].forEach(b=>b.classList.toggle("ativa",b===bt));
