@@ -609,7 +609,7 @@
   /* ================= categorias e regras padrão ================= */
   const CATS_PJ = new Set([
     "Receita de cliente","Reembolso e estorno","Rendimento","Transferência recebida",
-    "Produtos para venda","Pró-labore (retirada MEI)","Material de trabalho","Marketing",
+    "Produtos para venda","Pró-labore (retirada MEI)","Material de trabalho","Marketing","Transferência entre minhas contas",
     "Serviços do negócio","Compras físicas","Compras online","Assinaturas digitais",
     "Telefone e internet","Transporte","Impostos e taxas","Juros e IOF",
     "Seguros","Aplicação e resgate","Transferência enviada","Sem categoria"
@@ -618,7 +618,7 @@
     "Alimentação fora","Aplicação e resgate","Assinaturas digitais","Cartão de crédito","Casa e manutenção",
     "Compras físicas","Compras online","Estética e cuidados","Farmácia",
     "Juros e IOF","Lazer e entretenimento","Mercado e padaria",
-    "Presentes e doações","Pró-labore (retirada MEI)","Reembolso e estorno",
+    "Presentes e doações","Pró-labore (retirada MEI)","Reembolso e estorno","Transferência entre minhas contas",
     "Seguros","Telefone e internet","Transporte","Transferência enviada",
     "Transferência família","Transferência recebida","Vestuário e acessórios","Sem categoria"
   ]);
@@ -630,7 +630,7 @@
   }
 
   const CATEGORIAS = [
-    "Alimentação fora","Aplicação e resgate","Assinaturas digitais","Cartão de crédito","Casa e manutenção","Compras físicas","Compras online","Estética e cuidados","Farmácia","Impostos e taxas","Juros e IOF","Lazer e entretenimento","Marketing","Material de trabalho","Mercado e padaria","Produtos para venda","Presentes e doações","Pró-labore (retirada MEI)","Receita de cliente","Reembolso e estorno","Rendimento","Seguros","Serviços do negócio","Telefone e internet","Transporte","Transferência enviada","Transferência família","Transferência recebida","Vestuário e acessórios","Sem categoria"
+    "Alimentação fora","Aplicação e resgate","Assinaturas digitais","Cartão de crédito","Casa e manutenção","Compras físicas","Compras online","Estética e cuidados","Farmácia","Impostos e taxas","Juros e IOF","Lazer e entretenimento","Marketing","Material de trabalho","Mercado e padaria","Produtos para venda","Presentes e doações","Pró-labore (retirada MEI)","Receita de cliente","Reembolso e estorno","Rendimento","Seguros","Serviços do negócio","Telefone e internet","Transporte","Transferência entre minhas contas","Transferência enviada","Transferência família","Transferência recebida","Vestuário e acessórios","Sem categoria"
   ];
 
   const CORES = {
@@ -646,7 +646,7 @@
     "Produtos para venda":"#16A085","Pró-labore (retirada MEI)":"#5B4FCF",
     "Vestuário e acessórios":"#E91E8C","Lazer e entretenimento":"#FF5722",
     "Assinaturas digitais":"#3F51B5","Compras físicas":"#795548","Compras online":"#9C27B0","Presentes e doações":"#E91E63","Telefone e internet":"#00796B",
-    "Transferência família":"#E84393","Transferência enviada":"#7F8C8D","Sem categoria":"#B0AEA6"
+    "Transferência família":"#E84393","Transferência entre minhas contas":"#95A5A6","Transferência enviada":"#7F8C8D","Sem categoria":"#B0AEA6"
   };
   const cor = c => CORES[c] || "#8C8579";
   const rgba = (hex,a) => {
@@ -712,7 +712,12 @@
      - "Cartão de crédito" = pagamento da fatura (os gastos reais são as compras do cartão, na data da compra)
      - "Aplicação e resgate" = dinheiro guardado/resgatado, não consumo */
   const CAT_FATURA = "Cartão de crédito";
-  const CATS_FORA = new Set([CAT_FATURA,"Aplicação e resgate"]);
+  const CAT_ENTRE = "Transferência entre minhas contas";
+  const CAT_PL = "Pró-labore (retirada MEI)";
+  // não é gasto nem receita: fatura, aplicação e dinheiro passando de uma conta sua para outra (ex.: aporte CPF → CNPJ)
+  const CATS_FORA = new Set([CAT_FATURA,"Aplicação e resgate",CAT_ENTRE]);
+  // pró-labore: no Pessoal é ENTRADA (sua renda); no Negócio é RETIRADA (sai do caixa, mas não é custo)
+  const ehRetirada = l => l.categoria===CAT_PL && l.valor<0 && ehNegocio(l);
   const ehMov = l => !CATS_FORA.has(l.categoria);
   const mesAtual = () => new Date().toISOString().slice(0,7);
 
@@ -856,14 +861,15 @@
     function resumo(conta){
       const ls=base.filter(l=>contaDe(l)===conta);
       const ent={}, sai={};
-      ls.forEach(l=>{
+      const ret=conta==="pj"?ls.filter(ehRetirada).reduce((s,l)=>s-l.valor,0):0;
+      ls.filter(l=>!(conta==="pj"&&ehRetirada(l))).forEach(l=>{
         const alvo=l.valor>0?ent:sai;
         alvo[l.categoria]=alvo[l.categoria]||{v:0,n:0};
         alvo[l.categoria].v+=Math.abs(l.valor); alvo[l.categoria].n++;
       });
       const tE=Object.values(ent).reduce((s,x)=>s+x.v,0);
       const tS=Object.values(sai).reduce((s,x)=>s+x.v,0);
-      return {ls,ent,sai,tE,tS,semCat:ls.filter(l=>l.categoria==="Sem categoria").length};
+      return {ls,ent,sai,tE,tS,ret,semCat:ls.filter(l=>l.categoria==="Sem categoria").length};
     }
 
     function lista(obj,total,conta,tipo){
@@ -911,8 +917,9 @@
         '<div class="dash-kpis">'+
           '<div class="dash-kpi"><span class="rot">Entrou</span><div class="v" style="color:#1E8A5F">'+brl(r.tE)+'</div></div>'+
           '<div class="dash-kpi"><span class="rot">Gastou</span><div class="v">'+brl(r.tS)+'</div></div>'+
-          '<div class="dash-kpi"><span class="rot">'+(saldo<0?"Faltou":"Sobrou")+'</span><div class="v" style="color:'+(saldo<0?"#C0392B":"#1E8A5F")+'">'+brl(saldo)+'</div></div>'+
+          '<div class="dash-kpi"><span class="rot">'+(conta==="pj"?(saldo<0?"Prejuízo":"Lucro"):(saldo<0?"Faltou":"Sobrou"))+'</span><div class="v" style="color:'+(saldo<0?"#C0392B":"#1E8A5F")+'">'+brl(saldo)+'</div></div>'+
         '</div>'+
+        (conta==="pj"&&ui.dashSep!=="conta"?'<p class="dash-nota" style="margin:-8px 0 14px">Pró-labore retirado: <b>R$ '+brl(r.ret)+'</b> · ficou no caixa: <b>R$ '+brl(saldo-r.ret)+'</b></p>':'')+
         '<div class="dash-bloco" style="color:var(--tinta)"><h4><span>Onde gastou</span><span>'+brl(r.tS)+'</span></h4></div>'+
         lista(r.sai,r.tS,conta,"s")+
         '<div class="dash-bloco" style="color:#1E8A5F;margin-top:24px"><h4><span>De onde veio</span><span>'+brl(r.tE)+'</span></h4></div>'+
@@ -1470,8 +1477,8 @@
     const neg=ls.filter(ehNegocio), pes=ls.filter(l=>!ehNegocio(l));
     const sum=a=>a.reduce((s,l)=>s+Math.abs(l.valor),0);
     const recFora=neg.filter(l=>l.valor>0&&l.origem!=="pj"&&RECEITA_CATS.has(l.categoria));
-    const despFora=neg.filter(l=>l.valor<0&&l.origem!=="pj"&&l.categoria!=="Pró-labore (retirada MEI)");
-    const pesNoPj=pes.filter(l=>l.origem==="pj"&&l.categoria!=="Pró-labore (retirada MEI)");
+    const despFora=neg.filter(l=>l.valor<0&&l.origem!=="pj"&&l.categoria!==CAT_PL&&l.categoria!==CAT_ENTRE);
+    const pesNoPj=pes.filter(l=>l.origem==="pj"&&l.categoria!==CAT_PL&&l.categoria!==CAT_ENTRE);
     const prolab=ls.filter(l=>l.categoria==="Pró-labore (retirada MEI)"&&l.valor<0);
     return {recFora,despFora,pesNoPj,prolab,sum};
   }
@@ -1660,8 +1667,12 @@
     // Conferir extrato: igual ao banco — sem as compras do cartão, com o débito da fatura.
     const base = natureza ? lista.filter(ehMov) : lista.filter(l=>l.origem!=="cartao");
     const soma = a => a.reduce((s,l)=>s+l.valor,0);
+    const ehPJ = natureza && ui.conta==="pj";
+    const retiradas = ehPJ ? base.filter(ehRetirada) : [];
+    const retirado = Math.abs(soma(retiradas));
+    const baseGasto = ehPJ ? base.filter(l=>!ehRetirada(l)) : base;
     const ent=soma(base.filter(l=>l.valor>0));
-    const sai=soma(base.filter(l=>l.valor<0));
+    const sai=soma(baseGasto.filter(l=>l.valor<0));
     const res=ent+sai;
     const inicial = natureza?0:(ui.mes==="tudo" ? (dados.saldos[meses[0]]||0) : (dados.saldos[ui.mes]||0));
     const serie = natureza?[]:saldoDiario(base,inicial);
@@ -1670,7 +1681,7 @@
     const fundo = diasNeg.length?Math.min(...diasNeg.map(d=>d.saldo)):0;
 
     const porCat={};
-    base.forEach(l=>{ porCat[l.categoria]=(porCat[l.categoria]||0)+l.valor; });
+    baseGasto.forEach(l=>{ porCat[l.categoria]=(porCat[l.categoria]||0)+l.valor; });
     const saidas=Object.entries(porCat).filter(e=>e[1]<0).sort((a,b)=>a[1]-b[1]);
     const entradas=Object.entries(porCat).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]);
     const maiorSaida=saidas.length?Math.abs(saidas[0][1]):1;
@@ -1692,7 +1703,10 @@
       const partes=["Compras do cartão contam na data da compra."];
       if(fatura) partes.push("Pagamento de fatura (R$ "+brl(fatura)+") não é gasto: as compras já estão contadas.");
       if(aplic) partes.push("Aplicações e resgates (R$ "+brl(Math.abs(aplic))+") ficam fora.");
+      const entre=Math.abs(soma(lista.filter(l=>l.categoria===CAT_ENTRE)));
+      if(entre) partes.push("Transferências entre suas contas (R$ "+brl(entre)+") ficam fora.");
       nota=partes.join(" ");
+      if(ehPJ) nota='<b>Pró-labore retirado: R$ '+brl(retirado)+' · ficou no caixa do negócio: R$ '+brl(res-retirado)+'.</b> '+nota;
     } else nota="Como no banco: a fatura do cartão aparece como um débito único e as compras do cartão não entram.";
 
     const avisos=[];
@@ -1712,8 +1726,10 @@
 
     const cartoes = natureza
       ? cartao("Entrou",ent,"pos",base.filter(l=>l.valor>0).length+" lançamentos","#1E8A5F")+
-        cartao("Gastou",Math.abs(sai),"",base.filter(l=>l.valor<0).length+" lançamentos","#E08E0B")+
-        cartao(res<0?"Faltou":"Sobrou",res,res<0?"neg":"pos","entrou − gastou",res<0?"#C0392B":"#1E8A5F")
+        cartao("Gastou",Math.abs(sai),"",baseGasto.filter(l=>l.valor<0).length+" lançamentos"+(ehPJ?" · sem pró-labore":""),"#E08E0B")+
+        (ehPJ
+          ? cartao(res<0?"Prejuízo":"Lucro",res,res<0?"neg":"pos","entrou − gastou, antes do pró-labore",res<0?"#C0392B":"#1E8A5F")
+          : cartao(res<0?"Faltou":"Sobrou",res,res<0?"neg":"pos","entrou − gastou",res<0?"#C0392B":"#1E8A5F"))
       : cartao("Entradas",ent,"pos",base.filter(l=>l.valor>0).length+" lançamentos","#1E8A5F")+
         cartao("Saídas",Math.abs(sai),"",base.filter(l=>l.valor<0).length+" lançamentos","#E08E0B")+
         cartao("Saldo final",fim,fim<0?"neg":"",ui.mes==="tudo"?"acumulado":"em "+rotuloMes(ui.mes),fim<0?"#C0392B":"#2E86DE");
@@ -1897,7 +1913,6 @@
     {id:"impostos",    label:"Impostos (DAS/Simples)",  sinal:-1, cats:["Impostos e taxas"],                                                                      cor:"#8E44AD"},
     {id:"financeiro",  label:"Juros e encargos",        sinal:-1, cats:["Juros e IOF","Seguros"],                                                                 cor:"#C0392B"},
     {id:"produtos",    label:"Produtos para venda",      sinal:-1, cats:["Produtos para venda"],                                                                  cor:"#16A085"},
-    {id:"prolabore_g", label:"Pró-labore (retirada)",     sinal:-1, cats:["Pró-labore (retirada MEI)"],                                                             cor:"#5B4FCF"},
     {id:"outros",      label:"Outros custos do negócio",  sinal:-1, cats:["Transferência enviada"],                       cor:"#7F8C8D"},
   ];
 
@@ -1945,16 +1960,19 @@
       return {rec, custos, result, apos, margem};
     }
 
+    // pró-labore: retiradas reais (categoria Pró-labore, lado Negócio). Sem retiradas registradas, usa o valor configurado.
+    const retMes = m => pj.filter(l=>l.categoria===CAT_PL&&l.valor<0&&l.data.slice(0,7)===m).reduce((a,l)=>a-l.valor,0);
+    const temRet = pj.some(l=>l.categoria===CAT_PL&&l.valor<0);
+    const plDe = m => temRet ? retMes(m) : (dados.prolabore||0);
     // montar HTML
     const pl = dados.prolabore;
-    const acumCalc = calcDRE(acumGrupos, pl * cols.length);
+    const acumPLreal = cols.reduce((a,m)=>a+plDe(m),0);
 
     // tabela mensal
     const cabMeses = cols.map(m=>'<th class="n" style="min-width:100px">'+abrevMes(m)+'</th>').join("");
     const linhasSoma = cols.map(m=>{
       const col = porMes.find(c=>c.mes===m);
-      const c = calcDRE(col.grupos, pl);
-      return c;
+      return calcDRE(col.grupos, plDe(m));
     });
 
     function linhaDRE(label, vals, bold, cor, destaque, cats, mesesCols){
@@ -2012,7 +2030,7 @@
     const acumRec   = acumGrupos.find(g=>g.grupo.id==="receita")?.valor||0;
     const acumCustos= acumGrupos.filter(g=>g.grupo.id!=="receita").reduce((a,g)=>a+g.valor,0);
     const acumResult= acumRec - acumCustos;
-    const acumPL    = pl * cols.length;
+    const acumPL    = acumPLreal;
     const acumCaixa = acumResult - acumPL;
     const acumMargem= acumRec>0?(acumResult/acumRec*100):0;
 
@@ -2020,8 +2038,8 @@
     tabelaLinhas += '<tr class="dre-sep"><td colspan="'+(cols.length+2)+'"></td></tr>';
     tabelaLinhas += linhaDRE("Resultado operacional",
       [...linhasSoma.map(c=>c.result), acumResult], true, null, true);
-    tabelaLinhas += linhaDRE("(−) Pró-labore mensal",
-      [...linhasSoma.map(()=>pl>0?-pl:null), pl>0?-acumPL:null], false, "#5B4FCF", false);
+    tabelaLinhas += linhaDRE(temRet?"(−) Pró-labore retirado":"(−) Pró-labore (valor configurado)",
+      [...cols.map(m=>plDe(m)>0?-plDe(m):null), acumPL>0?-acumPL:null], false, "#5B4FCF", false);
     tabelaLinhas += linhaDRE("= Caixa gerado (MEI)",
       [...linhasSoma.map(c=>c.apos), acumCaixa], true, null, true);
 
@@ -2033,10 +2051,10 @@
     }
 
     // lançamentos sem categoria PJ
-    const semCatPJ = pj.filter(l=>l.categoria==="Sem categoria"||!GRUPOS_DRE.some(g=>g.cats.includes(l.categoria)));
+    const semCatPJ = pj.filter(l=>l.categoria==="Sem categoria"||(!CATS_FORA.has(l.categoria)&&l.categoria!==CAT_PL&&!GRUPOS_DRE.some(g=>g.cats.includes(l.categoria))));
 
     // configuração de pró-labore
-    const prolaText = pl>0 ? brl(pl)+"/mês" : "não configurado";
+    const prolaText = temRet ? "R$ "+brl(acumPL)+" retirados" : (pl>0 ? brl(pl)+"/mês" : "não configurado");
 
     $("#corpo").innerHTML =
       '<div style="display:flex;align-items:center;gap:16px;margin:26px 0 18px;flex-wrap:wrap">'
@@ -2058,7 +2076,7 @@
       +'<input id="inProlabore" type="text" class="campo" style="width:130px;text-align:right;font-family:var(--serif);font-size:16px" '
       +'value="'+(pl>0?brl(pl):"")+'" placeholder="R$ 0,00">'
       +'<button class="bt vazado" id="btSalvarPL" style="padding:6px 14px;font-size:12px">Salvar</button>'
-      +'<span class="sub">Valor fixo que você transfere da MEI para a conta pessoal todo mês.</span>'
+      +'<span class="sub">'+(temRet?'A DRE usa as transferências classificadas como Pró-labore. Este valor só é usado quando não há nenhuma.':'Usado enquanto nenhuma transferência estiver classificada como Pró-labore.')+'</span>'
       +'</div>'
 
       // tabela DRE
