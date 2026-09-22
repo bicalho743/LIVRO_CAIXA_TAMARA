@@ -1039,10 +1039,23 @@
 
   function numero(txt){
     let s = String(txt).trim().replace(/\s|R\$/g,"");
+    // extrato do BB (conta CNPJ) traz o valor com C/D no fim: "15.887,04 C", "-240,00 D"
+    let sinal = 0;
+    const cd = s.match(/([CD])$/i);
+    if(cd){ sinal = cd[1].toUpperCase()==="D" ? -1 : 1; s = s.slice(0,-1); }
     if(/,\d{1,2}$/.test(s)) s = s.replace(/\./g,"").replace(",",".");
     else s = s.replace(/,/g,"");
-    const n = parseFloat(s);
-    return isNaN(n)?0:n;
+    let n = parseFloat(s);
+    if(isNaN(n)) return 0;
+    if(sinal) n = sinal*Math.abs(n);
+    return n;
+  }
+
+  /* Reimportar um extrato corrige valores de lançamentos que já existem
+     (mesma data, documento e descrição), sem perder categoria e observações. */
+  function chaveLanc(l){ return l.data+"|"+(l.doc||"")+"|"+String(l.hist).slice(0,42)+"|"+(l.origem||"pf"); }
+  function mapaExistentes(){
+    const m=new Map(); dados.lancamentos.forEach(l=>{ if(!l.manual&&l.origem!=="cartao") m.set(chaveLanc(l),l); }); return m;
   }
   function dataISO(txt){
     const m = String(txt).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -1134,7 +1147,8 @@
       return {erro:"Não reconheci as colunas. Baixe o extrato do BB em CSV, sem alterar o cabeçalho."};
 
     const existentes = new Set(dados.lancamentos.map(l=>l.id));
-    let novos=0, repetidos=0, prontos=0, saldoAnt=null, mesesTocados=new Set();
+    const porChave = mapaExistentes();
+    let novos=0, repetidos=0, prontos=0, corrigidos=0, saldoAnt=null, mesesTocados=new Set();
 
     for(let i=1;i<linhas.length;i++){
       const l=linhas[i];
@@ -1148,6 +1162,12 @@
 
       const doc=(l[iDoc]||"").trim();
       const id=iso+"|"+doc+"|"+valor.toFixed(2)+"|"+hist.slice(0,42);
+      const velho=porChave.get(iso+"|"+doc+"|"+hist.slice(0,42)+"|"+(ui._contaAtual||"pf"));
+      if(velho){
+        if(Math.abs(velho.valor-valor)>0.004){ velho.valor=valor; velho.id=id; corrigidos++; mesesTocados.add(iso.slice(0,7)); }
+        else repetidos++;
+        existentes.add(id); continue;
+      }
       if(existentes.has(id)){ repetidos++; continue; }
       const c=classificar(hist,valor);
       if(c.categoria!=="Sem categoria") prontos++;
@@ -1164,7 +1184,7 @@
       dados.saldos[ym]=saldoAnt.valor;
     }
     dados.lancamentos.sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:a.id<b.id?-1:1);
-    return {novos:novos,repetidos:repetidos,prontos:prontos,meses:[...mesesTocados]};
+    return {novos:novos,repetidos:repetidos,prontos:prontos,corrigidos:corrigidos,meses:[...mesesTocados]};
   }
 
   function perguntarConta(cb){
@@ -1197,6 +1217,7 @@
         salvar(); render();
         avisar(r.novos+" lançamento"+(r.novos===1?"":"s")+" importado"+(r.novos===1?"":"s")+
                (r.novos?" · "+r.prontos+" já classificado"+(r.prontos===1?"":"s"):"")+
+               (r.corrigidos?" · "+r.corrigidos+" valor"+(r.corrigidos===1?"":"es")+" corrigido"+(r.corrigidos===1?"":"s"):"")+
                (r.repetidos?" · "+r.repetidos+" já estava"+(r.repetidos===1?"":"m")+" aqui":""));
       };
       fr.onerror=()=>avisar("Não consegui abrir esse arquivo.",true);
@@ -1245,7 +1266,8 @@
     if(iData<0||iVal<0){ avisar("Não reconheci as colunas. Verifique se é o extrato padrão do BB.",true); return; }
 
     const existentes = new Set(dados.lancamentos.map(l=>l.id));
-    let novos=0, repetidos=0, prontos=0;
+    const porChave = mapaExistentes();
+    let novos=0, repetidos=0, prontos=0, corrigidos=0;
     const mesesTocados = new Set();
 
     for(let i=cabIdx+1;i<linhas.length;i++){
@@ -1280,6 +1302,12 @@
 
       const doc = iDoc>=0?String(row[iDoc]||"").trim():"";
       const id  = iso+"|"+doc+"|"+val.toFixed(2)+"|"+hist.slice(0,42);
+      const velho = porChave.get(iso+"|"+doc+"|"+hist.slice(0,42)+"|"+(ui._contaAtual||"pf"));
+      if(velho){
+        if(Math.abs(velho.valor-val)>0.004){ velho.valor=val; velho.id=id; corrigidos++; mesesTocados.add(iso.slice(0,7)); }
+        else repetidos++;
+        existentes.add(id); continue;
+      }
       if(existentes.has(id)){repetidos++;continue;}
       const c = classificar(hist,val);
       if(c.categoria!=="Sem categoria") prontos++;
@@ -1293,6 +1321,7 @@
     salvar(); render();
     avisar(novos+" lançamento"+(novos===1?"":"s")+" importado"+(novos===1?"":"s")+
            (novos?" · "+prontos+" já classificado"+(prontos===1?"":"s"):"")+
+           (corrigidos?" · "+corrigidos+" valor"+(corrigidos===1?"":"es")+" corrigido"+(corrigidos===1?"":"s"):"")+
            (repetidos?" · "+repetidos+" já estava"+(repetidos===1?"":"m")+" aqui":"")+
            (formatoPJ?" (formato PJ detectado)":""));
   }
