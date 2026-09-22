@@ -418,6 +418,15 @@
   .dash-geral .v{font-family:var(--serif);font-size:30px;font-variant-numeric:tabular-nums;line-height:1.15}
   .dash-geral .g-hist{grid-column:1/-1;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--linha);font-size:14px;line-height:1.55;color:var(--tinta)}
   .dash-geral .g-hist b{font-weight:600}
+  .cascata{border:1px solid var(--linha);border-radius:4px;padding:6px 16px;background:#fff;max-width:720px}
+  .cascata.compacto{margin:-6px 0 18px;padding:4px 12px;max-width:none;background:var(--marfim);border-color:var(--linha-clara)}
+  .cas-l{display:flex;justify-content:space-between;gap:14px;padding:8px 0;font-size:13.5px;align-items:baseline}
+  .cas-l+.cas-l{border-top:1px solid var(--linha-clara)}
+  .cas-l.forte{font-weight:600}
+  .cas-l.forte:last-of-type{border-top:1px solid var(--tinta)}
+  .cas-v{font-family:var(--serif);font-size:17px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .compacto .cas-l{font-size:12.5px;padding:6px 0}.compacto .cas-v{font-size:15px}
+  .cas-nota{font-size:12.5px;color:var(--cinza);margin:4px 0 8px;line-height:1.5}
   .kpi-sub{display:block;font-size:11px;color:var(--cinza);margin-top:2px}
   @media (max-width:700px){.dash-geral{grid-template-columns:1fr;gap:10px;padding:16px}.dash-geral .v{font-size:24px}}
   .dash-sep-sel{font-size:12.5px;color:var(--cinza);display:flex;align-items:center;gap:8px}
@@ -929,6 +938,7 @@
           '<div class="dash-kpi"><span class="rot">'+(conta==="pj"?(saldo<0?"Prejuízo":"Lucro"):(saldo<0?"Faltou":"Sobrou"))+'</span><div class="v" style="color:'+(saldo<0?"#C0392B":"#1E8A5F")+'">'+brl(saldo)+'</div>'+
             '<span class="kpi-sub">entrou − gastou</span></div>'+
         '</div>'+
+        (conta==="pj"&&ui.dashSep!=="conta"?cascataHTML(fluxoNegocio(dados.lancamentos.filter(noPeriodo)),true):"")+
         '<div class="dash-bloco" style="color:var(--tinta)"><h4><span>Onde mais gastou</span><span>'+brl(r.tS)+'</span></h4></div>'+
         lista(r.sai,r.tS,conta,"s")+
         '<div class="dash-bloco" style="color:#1E8A5F;margin-top:22px"><h4><span>De onde veio</span><span>'+brl(r.tE)+'</span></h4></div>'+
@@ -965,11 +975,13 @@
     const sPF=rPF.tE-rPF.tS, sPJ=rPJ.tE-rPJ.tS-rPJ.ret;
     let historia="";
     if(ui.dashSep==="nat"&&dados.lancamentos.length){
-      const pl=rPJ.ret?' Você retirou <b>R$ '+brl(rPJ.ret)+'</b> de pró-labore.':'';
-      if(sPF<0&&sPJ>0) historia='O pessoal gastou <b>R$ '+brl(-sPF)+'</b> a mais do que recebeu, e o negócio ficou com <b>R$ '+brl(sPJ)+'</b> a mais. '+
-        (sPJ>=-sPF?'Ou seja: <b>o negócio cobriu o que faltou no pessoal</b>.':'O negócio cobriu parte do que faltou; o restante saiu de saldo guardado ou crédito.')+pl;
-      else if(sPF<0) historia='O pessoal gastou <b>R$ '+brl(-sPF)+'</b> a mais do que recebeu e o negócio não sobrou para cobrir: a diferença saiu de saldo guardado ou crédito.'+pl;
-      else historia='O pessoal fechou com <b>R$ '+brl(sPF)+'</b> '+(sPF>=0?'sobrando':'')+' e o negócio com <b>R$ '+brl(sPJ)+'</b> '+(sPJ>=0?'no caixa':'negativo')+'.'+pl;
+      const fx=fluxoNegocio(dados.lancamentos.filter(noPeriodo));
+      historia='O negócio '+(fx.lucro>=0?'lucrou':'teve prejuízo de')+' <b>R$ '+brl(Math.abs(fx.lucro))+'</b>. ';
+      if(fx.usado>0) historia+='Desse dinheiro, <b>R$ '+brl(fx.usado)+'</b> foi usado no pessoal'+
+        (fx.ret?(fx.usado>fx.ret+0.004?' (só R$ '+brl(fx.ret)+' como pró-labore registrado)':' como pró-labore'):' (nada como pró-labore registrado)')+
+        ' e <b>R$ '+brl(Math.abs(fx.cnpj))+'</b> '+(fx.cnpj>=0?'ficou na conta CNPJ':'saiu a mais da conta CNPJ')+'. ';
+      if(sPF<0) historia+='Contando só o pró-labore registrado, o pessoal gastou <b>R$ '+brl(-sPF)+'</b> a mais do que recebeu'+
+        (fx.informal>0?' — a diferença foi paga com a receita do negócio que caiu no CPF.':' — a diferença saiu de saldo guardado ou crédito.');
     }
     const faixa = dados.lancamentos.length ? '<section class="dash-geral">'+
         '<div class="g-num"><span class="rot">Entrou no total</span><div class="v" style="color:#1E8A5F">R$ '+brl(gE)+'</div></div>'+
@@ -1509,6 +1521,39 @@
       (noCpf?'<p class="sub" style="margin-top:6px">R$ '+brl(noCpf)+' dessa receita entrou pela conta CPF — receita da mesma atividade recebida no CPF também conta para o limite (Res. CGSN 183/2025).</p>':'')+
       '</div>';
   }
+  /* Do lucro do negócio até o que realmente ficou na conta CNPJ.
+     ls = lançamentos do período (todas as contas). */
+  function fluxoNegocio(ls){
+    const v=ls.filter(l=>!l.ignorado&&ehMov(l));
+    const neg=v.filter(ehNegocio), pes=v.filter(l=>!ehNegocio(l));
+    const sum=a=>a.reduce((s,l)=>s+l.valor,0);
+    const lucro=sum(neg.filter(l=>!ehRetirada(l)));
+    const ret=-sum(neg.filter(ehRetirada));
+    const informal=sum(neg.filter(l=>l.origem!=="pj"&&!ehRetirada(l)));   // + receita que caiu no CPF; − despesa do negócio paga por você
+    const recCPF=sum(neg.filter(l=>l.origem!=="pj"&&l.valor>0));
+    const despCPF=-sum(neg.filter(l=>l.origem!=="pj"&&l.valor<0&&!ehRetirada(l)));
+    const pesPj=-sum(pes.filter(l=>l.origem==="pj"));                       // gastos pessoais pagos pela conta CNPJ
+    const cnpj=lucro-ret-informal-pesPj;
+    return {lucro,ret,informal,recCPF,despCPF,pesPj,cnpj,usado:ret+Math.max(informal,0)+Math.max(pesPj,0)};
+  }
+  function cascataHTML(f,compacto){
+    const lin=(t,v,forte,cor)=>'<div class="cas-l'+(forte?' forte':'')+'"><span>'+t+'</span><span class="cas-v" style="'+(cor?'color:'+cor:'')+'">'+
+      (v<0?'− ':'')+'R$ '+brl(Math.abs(v))+'</span></div>';
+    let h=lin("Lucro do negócio",f.lucro,true,f.lucro<0?"#C0392B":"#1E8A5F");
+    if(f.ret) h+=lin("Pró-labore transferido para você",-f.ret);
+    if(f.informal>0) h+=lin("Receita que caiu no CPF e ficou com você"+(f.despCPF?' <span class="sub" style="display:inline">(R$ '+brl(f.recCPF)+' recebidos − R$ '+brl(f.despCPF)+' de despesas do negócio pagas pelo CPF)</span>':''),-f.informal);
+    if(f.informal<0) h+=lin("Despesas do negócio que você pagou do bolso",-f.informal);
+    if(f.pesPj>0) h+=lin("Gastos pessoais pagos pela conta CNPJ",-f.pesPj);
+    h+=lin("Ficou na conta CNPJ",f.cnpj,true,f.cnpj<0?"#C0392B":"var(--tinta)");
+    const usado=f.ret+Math.max(f.informal,0)+Math.max(f.pesPj,0);
+    return '<div class="cascata'+(compacto?' compacto':'')+'">'+h+
+      (usado>0?'<p class="cas-nota">Você usou <b>R$ '+brl(usado)+'</b> do dinheiro do negócio no pessoal'+
+        (f.ret&&usado>f.ret?' — só R$ '+brl(f.ret)+' como pró-labore registrado':'')+'.</p>':'')+
+      (f.cnpj<0?'<p class="cas-nota">Negativo: saiu mais da conta CNPJ do que entrou no período (usou saldo anterior ou aporte).</p>':'')+
+    '</div>';
+  }
+  function doPeriodo(){ return dados.lancamentos.filter(l=>ui.mes==="tudo"||l.data.slice(0,7)===ui.mes); }
+
   function resumoSeparacao(ls){
     const neg=ls.filter(ehNegocio), pes=ls.filter(l=>!ehNegocio(l));
     const sum=a=>a.reduce((s,l)=>s+Math.abs(l.valor),0);
@@ -1753,7 +1798,7 @@
       const entre=Math.abs(soma(lista.filter(l=>l.categoria===CAT_ENTRE)));
       if(entre) partes.push("Transferências entre suas contas (R$ "+brl(entre)+") ficam fora.");
       nota=partes.join(" ");
-      if(ehPJ) nota='<b>Pró-labore retirado: R$ '+brl(retirado)+' · ficou no caixa do negócio: R$ '+brl(res-retirado)+'.</b> '+nota;
+
     } else nota="Como no banco: a fatura do cartão aparece como um débito único e as compras do cartão não entram.";
 
     const avisos=[];
@@ -1786,6 +1831,7 @@
 
     corpo.innerHTML =
       '<section class="totais">'+cartoes+'</section>'+
+      (ehPJ?'<div class="tit-secao" style="margin:22px 0 8px"><h3>Para onde foi o lucro</h3></div>'+cascataHTML(fluxoNegocio(doPeriodo())):"")+
       '<p class="nota-linha">'+nota+'</p>'+
       (ui.conta==="pj"?limiteMeiHTML(/^\d{4}/.test(ui.mes||"")?ui.mes.slice(0,4):mesPadrao(meses).slice(0,4)):"")+
       (avisos.length?'<div class="avisos">'+avisos.join("")+'</div>':"")+
