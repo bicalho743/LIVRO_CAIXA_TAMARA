@@ -413,6 +413,13 @@
   .dash-atencao .it+.it{border-top:1px solid var(--linha-clara)}
   .dash-atencao .it.clic{cursor:pointer}.dash-atencao .it.clic:hover span:first-child{text-decoration:underline}
   .dash-atencao .v{font-family:var(--serif);font-size:18px;white-space:nowrap}
+  .dash-geral{display:grid;grid-template-columns:repeat(3,1fr);gap:0 24px;margin-top:24px;padding:20px 24px;
+        background:var(--marfim);border-radius:4px;border:1px solid var(--linha-clara)}
+  .dash-geral .v{font-family:var(--serif);font-size:30px;font-variant-numeric:tabular-nums;line-height:1.15}
+  .dash-geral .g-hist{grid-column:1/-1;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--linha);font-size:14px;line-height:1.55;color:var(--tinta)}
+  .dash-geral .g-hist b{font-weight:600}
+  .kpi-sub{display:block;font-size:11px;color:var(--cinza);margin-top:2px}
+  @media (max-width:700px){.dash-geral{grid-template-columns:1fr;gap:10px;padding:16px}.dash-geral .v{font-size:24px}}
   .dash-sep-sel{font-size:12.5px;color:var(--cinza);display:flex;align-items:center;gap:8px}
 
   @media (max-width:700px){
@@ -876,7 +883,7 @@
       const tudo=Object.entries(obj).sort((a,b)=>b[1].v-a[1].v);
       if(!tudo.length) return '<div class="dash-vazio">Nada neste período.</div>';
       const chave="dv_"+conta+tipo, aberto=!!ui[chave];
-      const it=aberto?tudo:tudo.slice(0,tipo==="e"?4:LIM);
+      const it=aberto?tudo:tudo.slice(0,tipo==="e"?3:4);
       const max=tudo[0][1].v||1;
       return it.map(([c,x])=>
         '<div class="dash-lin" data-dcat="'+esc(c)+'" data-dconta="'+conta+'" data-dtipo="'+tipo+'" title="Ver lançamentos">'+
@@ -885,7 +892,7 @@
           '<span class="pc">'+(total?Math.round(x.v/total*100):0)+'%</span>'+
           '<span class="br"><i style="width:'+Math.max(2,x.v/max*100).toFixed(1)+'%;background:'+(tipo==="e"?"#1E8A5F":cor(c))+'"></i></span>'+
         '</div>').join("")+
-        (tudo.length>it.length||aberto&&tudo.length>(tipo==="e"?4:LIM)
+        (tudo.length>it.length||aberto&&tudo.length>(tipo==="e"?3:4)
           ?'<button class="ver-mais" data-dver="'+chave+'">'+(aberto?"Mostrar menos":"Ver todas ("+tudo.length+")")+'</button>':"");
     }
 
@@ -915,14 +922,16 @@
       return '<section class="dash-col" style="--dc:'+dc+'">'+
         '<h2>'+titulo+'<button class="bt vazado" data-dadd="'+conta+'" style="font-size:12px;padding:6px 12px">+ Lançamento</button></h2>'+
         '<div class="dash-kpis">'+
-          '<div class="dash-kpi"><span class="rot">Entrou</span><div class="v" style="color:#1E8A5F">'+brl(r.tE)+'</div></div>'+
-          '<div class="dash-kpi"><span class="rot">Gastou</span><div class="v">'+brl(r.tS)+'</div></div>'+
-          '<div class="dash-kpi"><span class="rot">'+(conta==="pj"?(saldo<0?"Prejuízo":"Lucro"):(saldo<0?"Faltou":"Sobrou"))+'</span><div class="v" style="color:'+(saldo<0?"#C0392B":"#1E8A5F")+'">'+brl(saldo)+'</div></div>'+
+          '<div class="dash-kpi"><span class="rot">Entrou</span><div class="v" style="color:#1E8A5F">'+brl(r.tE)+'</div>'+
+            '<span class="kpi-sub">'+(conta==="pj"?"clientes e vendas":"inclui pró-labore")+'</span></div>'+
+          '<div class="dash-kpi"><span class="rot">Gastou</span><div class="v">'+brl(r.tS)+'</div>'+
+            '<span class="kpi-sub">'+(conta==="pj"?"custos do negócio":"seus gastos")+'</span></div>'+
+          '<div class="dash-kpi"><span class="rot">'+(conta==="pj"?(saldo<0?"Prejuízo":"Lucro"):(saldo<0?"Faltou":"Sobrou"))+'</span><div class="v" style="color:'+(saldo<0?"#C0392B":"#1E8A5F")+'">'+brl(saldo)+'</div>'+
+            '<span class="kpi-sub">entrou − gastou</span></div>'+
         '</div>'+
-        (conta==="pj"&&ui.dashSep!=="conta"?'<p class="dash-nota" style="margin:-8px 0 14px">Pró-labore retirado: <b>R$ '+brl(r.ret)+'</b> · ficou no caixa: <b>R$ '+brl(saldo-r.ret)+'</b></p>':'')+
-        '<div class="dash-bloco" style="color:var(--tinta)"><h4><span>Onde gastou</span><span>'+brl(r.tS)+'</span></h4></div>'+
+        '<div class="dash-bloco" style="color:var(--tinta)"><h4><span>Onde mais gastou</span><span>'+brl(r.tS)+'</span></h4></div>'+
         lista(r.sai,r.tS,conta,"s")+
-        '<div class="dash-bloco" style="color:#1E8A5F;margin-top:24px"><h4><span>De onde veio</span><span>'+brl(r.tE)+'</span></h4></div>'+
+        '<div class="dash-bloco" style="color:#1E8A5F;margin-top:22px"><h4><span>De onde veio</span><span>'+brl(r.tE)+'</span></h4></div>'+
         lista(r.ent,r.tE,conta,"e")+
         (r.semCat?'<p class="dash-nota"><button class="ver-mais" style="padding:0" data-dcat="Sem categoria" data-dconta="'+conta+'" data-dtipo="">'+r.semCat+' lançamento'+(r.semCat>1?"s":"")+' sem categoria — classificar</button></p>':'')+
       '</section>';
@@ -931,7 +940,7 @@
     let tabelaMes="";
     if(ui.mes==="tudo"&&todosMeses.length>1){
       const val=dados.lancamentos.filter(valido);
-      const soma=(m,c,t)=>val.filter(l=>l.data.slice(0,7)===m&&contaDe(l)===c&&(t==="e"?l.valor>0:l.valor<0))
+      const soma=(m,c,t)=>val.filter(l=>l.data.slice(0,7)===m&&contaDe(l)===c&&(t==="e"?l.valor>0:l.valor<0)&&!(c==="pj"&&ehRetirada(l)))
                             .reduce((s,l)=>s+Math.abs(l.valor),0);
       tabelaMes='<div class="tit-secao" style="margin-top:40px"><h3>Mês a mês</h3></div>'+
         '<div class="rolagem"><table class="dash-mes"><thead>'+
@@ -947,10 +956,33 @@
         }).join("")+'</tbody></table></div>';
     }
 
+    // visão consolidada: você + negócio juntos. Pró-labore é só dinheiro mudando de bolso, então fica fora.
+    const semPL=base.filter(l=>l.categoria!==CAT_PL);
+    const gE=semPL.filter(l=>l.valor>0).reduce((a,l)=>a+l.valor,0);
+    const gS=semPL.filter(l=>l.valor<0).reduce((a,l)=>a-l.valor,0);
+    const gR=gE-gS;
+    const rPF=resumo("pf"), rPJ=resumo("pj");
+    const sPF=rPF.tE-rPF.tS, sPJ=rPJ.tE-rPJ.tS-rPJ.ret;
+    let historia="";
+    if(ui.dashSep==="nat"&&dados.lancamentos.length){
+      const pl=rPJ.ret?' Você retirou <b>R$ '+brl(rPJ.ret)+'</b> de pró-labore.':'';
+      if(sPF<0&&sPJ>0) historia='O pessoal gastou <b>R$ '+brl(-sPF)+'</b> a mais do que recebeu, e o negócio ficou com <b>R$ '+brl(sPJ)+'</b> a mais. '+
+        (sPJ>=-sPF?'Ou seja: <b>o negócio cobriu o que faltou no pessoal</b>.':'O negócio cobriu parte do que faltou; o restante saiu de saldo guardado ou crédito.')+pl;
+      else if(sPF<0) historia='O pessoal gastou <b>R$ '+brl(-sPF)+'</b> a mais do que recebeu e o negócio não sobrou para cobrir: a diferença saiu de saldo guardado ou crédito.'+pl;
+      else historia='O pessoal fechou com <b>R$ '+brl(sPF)+'</b> '+(sPF>=0?'sobrando':'')+' e o negócio com <b>R$ '+brl(sPJ)+'</b> '+(sPJ>=0?'no caixa':'negativo')+'.'+pl;
+    }
+    const faixa = dados.lancamentos.length ? '<section class="dash-geral">'+
+        '<div class="g-num"><span class="rot">Entrou no total</span><div class="v" style="color:#1E8A5F">R$ '+brl(gE)+'</div></div>'+
+        '<div class="g-num"><span class="rot">Gastou no total</span><div class="v">R$ '+brl(gS)+'</div></div>'+
+        '<div class="g-num"><span class="rot">'+(gR<0?"Faltou":"Sobrou")+' no total</span><div class="v" style="color:'+(gR<0?"#C0392B":"#1E8A5F")+'">R$ '+brl(gR)+'</div></div>'+
+        (historia?'<p class="g-hist">'+historia+'</p>':'')+
+      '</section>' : "";
+
     $("#corpo").innerHTML=
-      '<div class="dash-topo">'+
-        '<p class="nota-linha" style="margin:0;max-width:62ch">Gasto real: compras do cartão contam na data da compra. '+
-          'Pagamento de fatura e aplicações não entram como gasto.</p>'+
+      faixa+
+      '<div class="dash-topo" style="margin-top:22px">'+
+        '<p class="nota-linha" style="margin:0;max-width:62ch">Compras do cartão contam na data da compra. '+
+          'Fatura, aplicações e transferências entre suas contas não entram.</p>'+
         '<div class="dash-sep-sel">Separar por'+
           '<div class="dash-modo">'+
             '<button data-dsep="nat" class="'+(ui.dashSep==="nat"?"on":"")+'" title="Pelo vínculo de cada lançamento">Natureza</button>'+
