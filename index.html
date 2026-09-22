@@ -609,7 +609,7 @@
   /* ================= categorias e regras padrão ================= */
   const CATS_PJ = new Set([
     "Receita de cliente","Reembolso e estorno","Rendimento","Transferência recebida",
-    "Produtos para venda","Pró-labore (retirada MEI)","Material de trabalho",
+    "Produtos para venda","Pró-labore (retirada MEI)","Material de trabalho","Marketing",
     "Serviços do negócio","Compras físicas","Compras online","Assinaturas digitais",
     "Telefone e internet","Transporte","Impostos e taxas","Juros e IOF",
     "Seguros","Aplicação e resgate","Transferência enviada","Sem categoria"
@@ -630,7 +630,7 @@
   }
 
   const CATEGORIAS = [
-    "Alimentação fora","Aplicação e resgate","Assinaturas digitais","Cartão de crédito","Casa e manutenção","Compras físicas","Compras online","Estética e cuidados","Farmácia","Impostos e taxas","Juros e IOF","Lazer e entretenimento","Material de trabalho","Mercado e padaria","Produtos para venda","Presentes e doações","Pró-labore (retirada MEI)","Receita de cliente","Reembolso e estorno","Rendimento","Seguros","Serviços do negócio","Telefone e internet","Transporte","Transferência enviada","Transferência família","Transferência recebida","Vestuário e acessórios","Sem categoria"
+    "Alimentação fora","Aplicação e resgate","Assinaturas digitais","Cartão de crédito","Casa e manutenção","Compras físicas","Compras online","Estética e cuidados","Farmácia","Impostos e taxas","Juros e IOF","Lazer e entretenimento","Marketing","Material de trabalho","Mercado e padaria","Produtos para venda","Presentes e doações","Pró-labore (retirada MEI)","Receita de cliente","Reembolso e estorno","Rendimento","Seguros","Serviços do negócio","Telefone e internet","Transporte","Transferência enviada","Transferência família","Transferência recebida","Vestuário e acessórios","Sem categoria"
   ];
 
   const CORES = {
@@ -639,7 +639,7 @@
     "Mercado e padaria":"#E08E0B","Alimentação fora":"#E85D2C",
     "Farmácia":"#2E86DE","Estética e cuidados":"#D6336C",
     "Casa e manutenção":"#6C7A3B","Transporte":"#0B8793",
-    "Material de trabalho":"#B8860B","Serviços do negócio":"#5B4FCF",
+    "Material de trabalho":"#B8860B","Marketing":"#EF6C00","Serviços do negócio":"#5B4FCF",
     "Compras online":"#9B59B6","Cartão de crédito":"#D63031",
     "Impostos e taxas":"#8E44AD","Juros e IOF":"#C0392B",
     "Seguros":"#2C5F8A","Aplicação e resgate":"#17A398",
@@ -692,7 +692,7 @@
     ["GOOGLE ONE","Assinaturas digitais","PF"],
     ["AMAZON PRIME","Assinaturas digitais","PF"],
     ["DISNEY","Assinaturas digitais","PF"],
-    ["FACEBK","Assinaturas digitais","PJ"],
+    ["FACEBK","Marketing","PJ"],
     ["SOLANO","Transferência família","PF"],
     ["MP*LALINGERIE","Vestuário e acessórios","PF"],
     ["MP*SONHARE","Vestuário e acessórios","PF"],
@@ -720,6 +720,8 @@
   function migrar(){
     // regra antiga "PIX - RECEBIDO → Receita de cliente" classificava qualquer Pix (família, reembolso) como faturamento
     dados.regras = dados.regras.filter(r=>!(r.padrao && String(r.termo).toUpperCase()==="PIX - RECEBIDO"));
+    // anúncios do Facebook/Instagram (FACEBK) passam a entrar como Marketing nas próximas importações
+    dados.regras.forEach(r=>{ if(r.padrao && r.termo==="FACEBK" && r.categoria==="Assinaturas digitais") r.categoria="Marketing"; });
   }
   let salvando = null;
 
@@ -831,7 +833,7 @@
 
   /* ================= dashboard CPF × CNPJ ================= */
   // categorias que são sempre do negócio, mesmo se o vínculo ficou "Pessoal"
-  const CATS_SO_NEGOCIO=new Set(["Receita de cliente","Serviços do negócio","Produtos para venda","Material de trabalho"]);
+  const CATS_SO_NEGOCIO=new Set(["Receita de cliente","Serviços do negócio","Produtos para venda","Material de trabalho","Marketing"]);
   function ehNegocio(l){ return l.vinculo==="PJ"||CATS_SO_NEGOCIO.has(l.categoria); }
   function contaDe(l){
     if(ui.dashSep==="conta") return l.origem==="pj"?"pj":"pf";
@@ -1860,6 +1862,7 @@
   const GRUPOS_DRE = [
     {id:"receita",     label:"Receita bruta",          sinal:1,  cats:["Receita de cliente","Reembolso e estorno","Rendimento","Transferência recebida"],       cor:"#1E8A5F"},
     {id:"terceiros",   label:"Serviços de terceiros",  sinal:-1, cats:["Serviços do negócio"],                                                                  cor:"#E85D2C"},
+    {id:"marketing",   label:"Marketing e divulgação",  sinal:-1, cats:["Marketing"],                                                                           cor:"#EF6C00"},
     {id:"material",    label:"Material e compras",     sinal:-1, cats:["Material de trabalho","Compras online","Compras físicas"],                                                  cor:"#E08E0B"},
     {id:"transporte",  label:"Transporte e deslocamento",sinal:-1,cats:["Transporte"],                                                                            cor:"#0B8793"},
     {id:"impostos",    label:"Impostos (DAS/Simples)",  sinal:-1, cats:["Impostos e taxas"],                                                                      cor:"#8E44AD"},
