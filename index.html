@@ -904,7 +904,7 @@
       const recAno=dados.lancamentos.filter(l=>!l.ignorado&&l.valor>0&&ehNegocio(l)&&RECEITA_CATS.has(l.categoria)&&l.data.slice(0,4)===ano)
         .reduce((s,l)=>s+l.valor,0);
       if(recAno>81000*0.8) itens.push(['<span>Faturamento MEI '+ano+' — '+Math.round(recAno/81000*100)+'% do limite de R$ 81 mil</span>',
-        'R$ '+brl(recAno), recAno>81000?"#C0392B":"#E08E0B","pj"]);
+        'R$ '+brl(recAno), recAno>81000?"#C0392B":"#E08E0B","fat:"+ano]);
       if(r.recFora.length) itens.push(['<span>Receita do negócio recebida fora da conta CNPJ · '+r.recFora.length+'×</span>','R$ '+brl(r.sum(r.recFora)),"#C0392B","pj"]);
       if(r.despFora.length) itens.push(['<span>Despesas do negócio pagas com dinheiro pessoal · '+r.despFora.length+'×</span>','R$ '+brl(r.sum(r.despFora)),"#E08E0B","pj"]);
       if(r.pesNoPj.length) itens.push(['<span>Gastos pessoais pagos pela conta CNPJ · '+r.pesNoPj.length+'×</span>','R$ '+brl(r.sum(r.pesNoPj)),"#C0392B","cpf"]);
@@ -994,12 +994,15 @@
         : '<div class="vazio"><p class="num">Sem lançamentos ainda</p><p>Clique em Importar ou em + Lançamento.</p></div>');
 
     const corpo=$("#corpo");
-    const irPara=(conta)=>{ ui.conta=conta; ui.view="mes"; ui.busca=""; ui.vinculo=""; render(); };
+    const irPara=(conta)=>{ ui.conta=conta; ui.view="mes"; ui.busca=""; ui.vinculo=""; ui.fat=""; render(); };
     corpo.onclick=e=>{
       const dv=e.target.closest("[data-dver]");
       if(dv){ ui[dv.dataset.dver]=!ui[dv.dataset.dver]; renderDashboard(); return; }
       const sp=e.target.closest("[data-sepir]");
-      if(sp){ ui.cat=""; ui.tipo=""; ui.origem=sp.dataset.sepir==="pj"?"":"pj"; irPara(sp.dataset.sepir); return; }
+      if(sp){
+        const alvo=sp.dataset.sepir;
+        if(alvo.startsWith("fat:")){ abrirFaturamento(alvo.slice(4)); return; }
+        ui.cat=""; ui.tipo=""; ui.origem=alvo==="pj"?"":"pj"; irPara(alvo); return; }
       const ds=e.target.closest("[data-dsep]");
       if(ds){ ui.dashSep=ds.dataset.dsep; renderDashboard(); return; }
       const ad=e.target.closest("[data-dadd]");
@@ -1497,7 +1500,8 @@
       :tot>LIM*0.8?"Acima de 80% do limite anual. Vale planejar o restante do ano."
       :"Dentro do limite anual do MEI.";
     return '<div class="limite-mei"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">'+
-      '<span class="rot" style="margin:0">Limite MEI '+ano+' · receita bruta</span>'+
+      '<span class="rot" style="margin:0">Limite MEI '+ano+' · receita bruta '+
+        '<button class="ver-mais" style="padding:0 0 0 8px;letter-spacing:0;text-transform:none" data-fat="'+ano+'">ver lançamentos</button></span>'+
       '<span style="font-family:var(--serif);font-size:22px;color:'+c+'">R$ '+brl(tot)+' <small style="font-size:13px;color:var(--cinza)">de R$ 81.000</small></span></div>'+
       '<div class="barra"><i style="width:'+pct.toFixed(1)+'%;background:'+c+'"></i>'+
       '<span class="marca" style="left:'+(LIM/TOL*100).toFixed(1)+'%" title="R$ 81.000"></span></div>'+
@@ -1521,9 +1525,20 @@
     return ui.mes==="tudo" ? base.slice()
          : base.filter(l=>l.data.slice(0,7)===ui.mes);
   }
+  function ehFaturamento(l,ano){
+    return !l.ignorado&&l.valor>0&&ehNegocio(l)&&RECEITA_CATS.has(l.categoria)&&l.data.slice(0,4)===String(ano);
+  }
+  function abrirFaturamento(ano){
+    ui.conta="pj"; ui.view="mes"; ui.mes="tudo";
+    ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem=""; ui.fat=String(ano);
+    ui.sortCol="valor"; ui.sortDir=1; // tabela mostra invertido: maior primeiro
+    render();
+    try{ document.getElementById("tabelaLanc").scrollIntoView({behavior:"smooth",block:"start"}); }catch(_){}
+  }
   function filtrados(){
     const b=ui.busca.trim().toLowerCase();
     const base=doMes().filter(l=>{
+      if(ui.fat && !ehFaturamento(l,ui.fat)) return false;
       if(b && !(l.hist.toLowerCase().includes(b)||(l.obs||"").toLowerCase().includes(b))) return false;
       if(ui.cat && l.categoria!==ui.cat) return false;
       if(ui.vinculo && l.vinculo!==ui.vinculo) return false;
@@ -2296,6 +2311,7 @@
       th.firstChild.textContent=lab+(ui.sortCol===th.dataset.sort?(ui.sortDir>0?" ↑":" ↓"):"");
     });
     const chips=[];
+    if(ui.fat) chips.push(["fat","Faturamento MEI "+ui.fat+" · R$ "+brl(lista.reduce((a,l)=>a+l.valor,0))]);
     if(ui.busca) chips.push(["busca","“"+ui.busca+"”"]);
     if(ui.cat) chips.push(["cat",ui.cat]);
     if(ui.tipo) chips.push(["tipo",ui.tipo==="e"?"Só entradas":"Só saídas"]);
@@ -2390,11 +2406,13 @@
     $("#fBusca").oninput=e=>{ui.busca=e.target.value;tabela();};
 
     document.getElementById("corpo").onclick=e=>{
+      const fb=e.target.closest("[data-fat]");
+      if(fb){ abrirFaturamento(fb.dataset.fat); return; }
       const vm=e.target.closest("[data-vermais]");
       if(vm){ const k=vm.dataset.vermais==="sai"?"verTodasSai":"verTodasEnt"; ui[k]=!ui[k]; render(); return; }
       const chip=e.target.closest("[data-chip]");
       if(chip){ const k=chip.dataset.chip;
-        if(k==="*"){ ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem=""; } else ui[k]="";
+        if(k==="*"){ ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem="";ui.fat=""; } else ui[k]="";
         render(); try{document.getElementById("tabelaLanc").scrollIntoView({block:"start"});}catch(_){ } return; }
       const th=e.target.closest("th[data-sort]"); if(!th||e.target.closest(".col-drag")) return;
       const col=th.dataset.sort;
@@ -2517,7 +2535,7 @@
     const linha=e.target.closest("[data-filtrar]"); if(!linha) return;
     const cat=linha.dataset.filtrar;
     ui.cat = ui.cat===cat ? "" : cat;
-    ui.busca=""; ui.tipo=""; ui.vinculo="";
+    ui.busca=""; ui.tipo=""; ui.vinculo=""; ui.fat="";
     render();
     try{const tb=document.getElementById("corpoTabela");
       if(tb) tb.closest("table").scrollIntoView({behavior:"smooth",block:"start"});}catch(e){}
@@ -2533,7 +2551,7 @@
     const bt=e.target.closest(".conta-tab"); if(!bt) return;
     if(ui.conta==="dash"||bt.dataset.conta==="dash") ui.mes=null; // dashboard abre em "todos os meses"; contas abrem no mês atual
     ui.conta=bt.dataset.conta; ui.view="mes";
-    ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem="";
+    ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem=""; ui.fat="";
     render();
   });
 
