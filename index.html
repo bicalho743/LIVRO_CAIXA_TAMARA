@@ -990,6 +990,7 @@
         '<div class="g-num"><span class="rot">Gastou no total</span><div class="v">R$ '+brl(gS)+'</div></div>'+
         '<div class="g-num"><span class="rot">'+(gR<0?"Faltou":"Sobrou")+' no total</span><div class="v" style="color:'+(gR<0?"#C0392B":"#1E8A5F")+'">R$ '+brl(gR)+'</div></div>'+
         (historia?'<p class="g-hist">'+historia+'</p>':'')+
+        (linhaFatura()?'<p class="g-hist">'+linhaFatura()+'</p>':'')+
       '</section>' : "";
 
     $("#corpo").innerHTML=
@@ -1054,6 +1055,8 @@
         dados.saldos      = d.saldos||{};
         dados.regras      = (d.regras&&d.regras.length)?d.regras:REGRAS_PADRAO.slice();
         dados.prolabore   = d.prolabore||0;
+        dados.faturaAberta = d.faturaAberta||null;
+        dados.faturaFechada= d.faturaFechada||null;
         migrar();
         dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
         // migração: remover lançamentos do cartão com data > hoje+6 meses (bug antigo)
@@ -1167,6 +1170,7 @@
   function ajustarParc(iso, hist){
     const m = hist.match(/PARC\s+(\d{2})\/(\d{2})/i);
     if(!m) return iso;
+    if(/ANUIDADE|TIT-PARC/i.test(hist)) return iso; // anuidade já vem na data da cobrança
     const atual = parseInt(m[1]);
     if(atual <= 1) return iso;           // parcela 1 fica na data original
     const [y,mo,d] = iso.split("-").map(Number);
@@ -1414,63 +1418,90 @@
       }
     }
 
-    // extrair o texto reconstruindo as linhas reais da fatura pela posição (Y) de cada
-    // item, em vez de simplesmente concatenar tudo com espaço. Isso evita que uma linha
-    // sem código de país/canal (ex.: "ENCARGOS FINANC ROTATIVO", "IOF - COMPRA NO
-    // EXTERIOR") "engula" a data e o valor da linha seguinte na mesma regex.
-    const linhasItens = [];
+    // ler os itens de texto de cada página, com a posição (x, y) de cada um
+    const paginas = [];
     for(let p=1;p<=pdfDoc.numPages;p++){
       const page = await pdfDoc.getPage(p);
       const content = await page.getTextContent();
-      const itens = content.items.filter(it=>it.str && it.str.trim()!=="");
-      itens.sort((a,b)=> b.transform[5]-a.transform[5] || a.transform[4]-b.transform[4]);
-      const TOL = 2; // tolerância (pt) pra agrupar itens da mesma linha visual
-      let linha=null, ultimoY=null;
-      itens.forEach(it=>{
+      paginas.push(content.items.filter(it=>it.str && it.str.trim()!==""));
+    }
+    // agrupar itens da mesma linha visual pela posição Y (evita que uma linha "engula"
+    // a data e o valor da linha seguinte)
+    const agruparLinhas = itens=>{
+      const ord = itens.slice().sort((a,b)=> b.transform[5]-a.transform[5] || a.transform[4]-b.transform[4]);
+      const linhas=[]; let linha=null, ultY=null;
+      ord.forEach(it=>{
         const y = it.transform[5];
-        if(linha===null || Math.abs(y-ultimoY)>TOL){ linha=[]; linhasItens.push(linha); ultimoY=y; }
-        linha.push(it);
+        if(linha===null || Math.abs(y-ultY)>2){ linha={y:y,itens:[]}; linhas.push(linha); ultY=y; }
+        linha.itens.push(it);
+      });
+      linhas.forEach(l=>{ l.itens.sort((a,b)=>a.transform[4]-b.transform[4]); l.txt=l.itens.map(i=>i.str).join(" "); });
+      return linhas;
+    };
+    const textoTotal = paginas.map(it=>agruparLinhas(it).map(l=>l.txt).join("\n")).join("\n");
+    const dataBR = s => s ? s.split("/").reverse().join("-") : "";
+    const numBR  = s => parseFloat(String(s).replace(/\./g,"").replace(",","."));
+
+    // detectar cartão e datas da fatura
+    const mCartao = textoTotal.match(/Final\s+(\d{4})/i);
+    const cartao  = mCartao ? "Final "+mCartao[1] : ((dados.faturaFechada&&dados.faturaFechada.cartao)||"Cartão");
+    const mFecha = textoTotal.match(/Fatura fechada em\s+(\d{2})\/(\d{2})\/(\d{4})/i);
+    const hoje = new Date();
+    const anoFatura    = mFecha ? parseInt(mFecha[3]) : hoje.getFullYear();
+    const mesFechamento= mFecha ? parseInt(mFecha[2]) : hoje.getMonth()+1;
+    // "Lançamentos Futuros" = fatura ainda em aberto (layout em duas colunas)
+    const ehAberta = !mFecha && /Lan[çc]amentos Futuros/i.test(textoTotal);
+
+    const brutos = []; // {dd,mm,desc,v} — v positivo = compra, negativo = crédito
+    let pendentes=0, pendTotal=0;
+    if(ehAberta){
+      paginas.forEach(itens=>{
+        // cada cabeçalho "Data" abre uma coluna
+        const xs = itens.filter(i=>i.str.trim()==="Data").map(i=>i.transform[4]).sort((a,b)=>a-b);
+        const cortes=[];
+        xs.forEach(x=>{ if(!cortes.length || x-cortes[cortes.length-1]>40) cortes.push(x); });
+        if(!cortes.length) cortes.push(0);
+        const cols = cortes.map(()=>[]);
+        itens.forEach(it=>{ let c=0; cortes.forEach((x,i)=>{ if(it.transform[4]>=x-6) c=i; }); cols[c].push(it); });
+        cols.forEach(col=>{
+          let emProc=false;
+          agruparLinhas(col).forEach(l=>{
+            if(/Lan[çc]amentos em processamento/i.test(l.txt)){ emProc=true; return; }
+            const m = l.txt.match(/^\s*(\d{2})\/(\d{2})\s+(.+?)\s+(?:R\$\s*)?(-?[\d.]*\d,\d{2})\s*$/);
+            if(!m) return; // cabeçalhos e a linha da cidade (continuação) ficam de fora
+            const v = numBR(m[4]);
+            if(emProc){ pendentes++; pendTotal+=v; return; }
+            brutos.push({dd:m[1],mm:m[2],desc:m[3].trim().replace(/\s+R\$$/,""),v:v});
+          });
+        });
+      });
+    } else {
+      // fatura fechada: DD/MM DESCRIÇÃO [código do país] R$ [-]N,NN
+      const RE = /^\s*(\d{2})\/(\d{2})\s+(.+?)\s+(?:[A-Z]{2}\s+)?R\$\s*([-\d.,]+)\s*$/;
+      textoTotal.split("\n").forEach(linhaTxt=>{
+        const m = linhaTxt.match(RE);
+        if(m) brutos.push({dd:m[1],mm:m[2],desc:m[3].trim(),v:numBR(m[4])});
       });
     }
-    const textoTotal = linhasItens.map(itensLinha=>{
-      itensLinha.sort((a,b)=>a.transform[4]-b.transform[4]);
-      return itensLinha.map(i=>i.str).join(" ");
-    }).join("\n");
 
-    // detectar cartão e ano da fatura
-    const mCartao = textoTotal.match(/Final\s+(\d{4})/i);
-    const cartao  = mCartao ? "Final "+mCartao[1] : "Cartão";
-    // detectar mês de fechamento da fatura para determinar o ano de cada compra
-    const mFecha = textoTotal.match(/Fatura fechada em\s+\d{2}\/(\d{2})\/(\d{4})/i);
-    const anoFatura    = mFecha ? parseInt(mFecha[2]) : new Date().getFullYear();
-    const mesFechamento= mFecha ? parseInt(mFecha[1]) : new Date().getMonth()+1;
-
-    // regex aplicada por LINHA (não mais no texto inteiro): DD/MM DESCRIÇÃO [código opcional] R$ [-]N,NN
-    // o código de país/canal (BR, IA, TX, CA...) agora é opcional, pois tarifas e encargos
-    // internos (ENCARGOS FINANC ROTATIVO, IOF...) não vêm acompanhados desse código.
-    const RE = /^\s*(\d{2})\/(\d{2})\s+(.+?)\s+(?:[A-Z]{2}\s+)?R\$\s*([-\d.,]+)\s*$/;
     const lancamentos = [];
-    textoTotal.split("\n").forEach(linhaTxt=>{
-      const m = linhaTxt.match(RE);
-      if(!m) return;
-      const [,dd,mm,desc,valStr] = m;
-      const desc2 = desc.trim();
+    let somaAberta = 0;
+    brutos.forEach(b=>{
+      const desc2 = b.desc;
       if(/^(PGTO|PAGTO|PAGAMENTO|SALDO FATURA)/i.test(desc2)) return;
-      // ANTEC = parcelas antecipadas cobradas pelo banco (ex: cancelamento de compra parcelada)
-      // devem entrar normalmente — são cobranças reais
+      // ANTEC = parcelas antecipadas cobradas pelo banco — são cobranças reais
       const ehAntec = /^ANTEC\s+\d{2}\/\d{2}-/i.test(desc2);
-      // limpar descrição dos ANTEC: "ANTEC 03/12-AMAZONMKTPLC*LE INDA" → "AMAZONMKTPLC*LE INDA (ANTEC 03/12)"
       const desc3 = ehAntec
-        ? desc2.replace(/^ANTEC\s+(\d{2}\/\d{2})-\s*/i, (_, p)=>``).trim() + ` (antecipada ${desc2.match(/^ANTEC\s+(\d{2}\/\d{2})/i)[1]})`
+        ? desc2.replace(/^ANTEC\s+(\d{2}\/\d{2})-\s*/i,"").trim() + ` (antecipada ${desc2.match(/^ANTEC\s+(\d{2}\/\d{2})/i)[1]})`
         : desc2;
-      const v = parseFloat(valStr.replace(/\./g,"").replace(",","."));
+      const v = b.v;
       if(isNaN(v)||v===0) return;
+      somaAberta += v;
       const valorApp = v > 0 ? -v : Math.abs(v);
-      const mesCompra = parseInt(mm);
+      const mesCompra = parseInt(b.mm);
       const ano = mesCompra > mesFechamento ? anoFatura - 1 : anoFatura;
-      const iso = `${ano}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
-      // a fatura sempre imprime a data ORIGINAL da compra, mesmo na parcela 02/04, 03/04...
-      // por isso a data é deslocada aqui; nenhuma parcela é lançada antes de vir na própria fatura
+      const iso = `${ano}-${b.mm}-${b.dd}`;
+      // a fatura imprime a data ORIGINAL da compra, mesmo na parcela 02/04, 03/04...
       lancamentos.push({data:ajustarParc(iso, desc3), hist:desc3, valor:valorApp, doc:cartao});
     });
 
@@ -1478,18 +1509,49 @@
       avisar("Não encontrei lançamentos no PDF. Verifique se é a fatura do BB Ourocard.",true); return;
     }
 
-    // Nunca projetar parcelas futuras aqui: cada parcela só entra quando a fatura
-    // daquele mês é realmente importada. A data de cada uma já vem ajustada
-    // (ajustarParc, aplicado acima ao extrair), então só muda a data — nada é
-    // lançado pra frente antes de existir na fatura correspondente.
+    // resumo da fatura para mostrar na visão geral
+    if(ehAberta){
+      dados.faturaAberta = {cartao:cartao, total:Math.round(somaAberta*100)/100,
+        pendente:Math.round(pendTotal*100)/100, nPendentes:pendentes,
+        atualizadoEm:hoje.toISOString().slice(0,10),
+        fechamento:(dados.faturaFechada&&dados.faturaFechada.proxFechamento)||""};
+    } else if(mFecha){
+      const mTot  = textoTotal.match(/\bTotal\s+R\$\s*([\d.]+,\d{2})/);
+      const mVenc = textoTotal.match(/Vencimento[\s\S]{0,120}?(\d{2}\/\d{2}\/\d{4})/);
+      const mProx = textoTotal.match(/Fechamento da pr[óo]xima fatura\s+(\d{2}\/\d{2}\/\d{4})/i);
+      const fechadaEm = `${mFecha[3]}-${mFecha[2]}-${mFecha[1]}`;
+      if(!dados.faturaFechada || (dados.faturaFechada.fechadaEm||"") <= fechadaEm)
+        dados.faturaFechada = {cartao:cartao, fechadaEm:fechadaEm,
+          total: mTot ? numBR(mTot[1]) : null,
+          vencimento: mVenc ? dataBR(mVenc[1]) : "",
+          proxFechamento: mProx ? dataBR(mProx[1]) : ""};
+    }
 
-    const existentes = new Set(dados.lancamentos.map(l=>l.id));
+    // Evitar duplicar: a mesma compra pode vir escrita um pouco diferente na fatura
+    // em aberto e na fechada ("DUROKE CASA DE CARNE BELO" × "...BELO HORIZONT").
+    // Compara data + valor + começo da descrição; compras iguais no mesmo dia contam
+    // uma a uma (duas de R$ 29,90 no mesmo dia são duas compras).
+    const norm = s => String(s).toUpperCase().normalize("NFD").replace(/[^A-Z0-9]/g,"");
+    const parecido = (a,b)=>{ a=norm(a); b=norm(b); const n=Math.min(8,a.length,b.length); return n>0 && a.slice(0,n)===b.slice(0,n); };
+    const livres = new Map();
+    dados.lancamentos.forEach(l=>{
+      if(l.origem!=="cartao") return;
+      const k = l.data+"|"+Number(l.valor).toFixed(2);
+      if(!livres.has(k)) livres.set(k,[]);
+      livres.get(k).push(l);
+    });
+    const idsUsados = new Set(dados.lancamentos.map(l=>l.id));
     let novos=0, repetidos=0, prontos=0;
     const mesesTocados = new Set();
 
     lancamentos.forEach(l=>{
-      const id = l.data+"|cartao|"+l.valor.toFixed(2)+"|"+l.hist.slice(0,42);
-      if(existentes.has(id)){repetidos++;return;}
+      const k = l.data+"|"+l.valor.toFixed(2);
+      const cand = livres.get(k)||[];
+      const i = cand.findIndex(x=>parecido(x.hist,l.hist));
+      if(i>=0){ cand.splice(i,1); repetidos++; return; }
+      const base = l.data+"|cartao|"+l.valor.toFixed(2)+"|"+l.hist.slice(0,42);
+      let id = base, n = 2;
+      while(idsUsados.has(id)) id = base+"#"+(n++);
       // valor positivo vindo do cartão = estorno/crédito de compra
       let c = classificar(l.hist, l.valor);
       if(l.valor > 0 && c.categoria==="Receita de cliente"){
@@ -1498,7 +1560,7 @@
       if(c.categoria!=="Sem categoria") prontos++;
       dados.lancamentos.push({id, data:l.data, hist:l.hist, valor:l.valor,
         doc:l.doc, categoria:c.categoria, vinculo:c.vinculo, obs:"", origem:"cartao"});
-      existentes.add(id); novos++;
+      idsUsados.add(id); novos++;
       mesesTocados.add(l.data.slice(0,7));
     });
 
@@ -1507,7 +1569,26 @@
     salvar(); render();
     avisar(novos+" lançamento"+(novos===1?"":"s")+" do cartão importado"+(novos===1?"":"s")+
            (novos?" · "+prontos+" já classificado"+(prontos===1?"":"s"):"")+
-           (repetidos?" · "+repetidos+" já existia"+(repetidos===1?"":"m"):""));
+           (repetidos?" · "+repetidos+" já existia"+(repetidos===1?"":"m"):"")+
+           (ehAberta?" · fatura em aberto: R$ "+brl(somaAberta)+(pendTotal?" (+ R$ "+brl(pendTotal)+" em processamento)":""):""));
+  }
+  function linhaFatura(){
+    const a=dados.faturaAberta, f=dados.faturaFechada;
+    const dm = iso => iso ? iso.slice(8,10)+"/"+iso.slice(5,7) : "";
+    const partes=[];
+    const hoje = new Date().toISOString().slice(0,10);
+    if(a && (!f || (f.fechadaEm||"") < a.atualizadoEm)){
+      const cart = a.cartao!=="Cartão" ? a.cartao : (f&&f.cartao);
+      const fecha = a.fechamento || (f&&f.proxFechamento>=a.atualizadoEm ? f.proxFechamento : "");
+      partes.push('💳 Fatura do cartão em aberto'+(cart?' ('+esc(cart)+')':'')+
+        ': <b>R$ '+brl(a.total)+'</b> até '+dm(a.atualizadoEm)+
+        (a.pendente?' + R$ '+brl(a.pendente)+' em processamento':'')+
+        (fecha?' · fecha em '+dm(fecha):'')+'.');
+    }
+    if(f && f.total!=null)
+      partes.push('Última fatura fechada: R$ '+brl(f.total)+
+        (f.vencimento?(f.vencimento<hoje?' · venceu em ':' · vence em ')+dm(f.vencimento):'')+'.');
+    return partes.join(' ');
   }
   const visaoNatureza = () => ui.conta==="cpf"||ui.conta==="pj";
   function lancDaConta(){
@@ -2667,6 +2748,7 @@
       dados.saldos={};
       dados.regras=REGRAS_PADRAO.slice();
       dados.prolabore=0;
+      dados.faturaAberta=null; dados.faturaFechada=null;
       ui={mes:null,view:"mes",busca:"",cat:"",tipo:"",vinculo:"",sortCol:"data",sortDir:1,conta:ui.conta||"dash"};
       salvar(); render();
       avisar("Histórico apagado. Importe os extratos novamente.");
@@ -2695,6 +2777,8 @@
         dados.saldos      = remoto.saldos||{};
         dados.regras      = (remoto.regras&&remoto.regras.length)?remoto.regras:REGRAS_PADRAO.slice();
         dados.prolabore   = remoto.prolabore||0;
+        dados.faturaAberta = remoto.faturaAberta||null;
+        dados.faturaFechada= remoto.faturaFechada||null;
         migrar();
         render();
         avisar("Dados carregados da nuvem.");
