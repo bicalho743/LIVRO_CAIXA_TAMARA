@@ -1034,7 +1034,8 @@
       if(sp){
         const alvo=sp.dataset.sepir;
         if(alvo.startsWith("fat:")){ abrirFaturamento(alvo.slice(4)); return; }
-        ui.cat=""; ui.tipo=""; ui.origem=alvo==="pj"?"":"pj"; irPara(alvo); return; }
+        ui.cat=""; ui.tipo=""; ui.origem=""; ui.errada=true; irPara(alvo);
+        try{document.getElementById("tabelaLanc").scrollIntoView({behavior:"smooth",block:"start"});}catch(_){ } return; }
       const ds=e.target.closest("[data-dsep]");
       if(ds){ ui.dashSep=ds.dataset.dsep; renderDashboard(); return; }
       const ad=e.target.closest("[data-dadd]");
@@ -1695,6 +1696,14 @@
     const prolab=ls.filter(l=>l.categoria==="Pró-labore (retirada MEI)"&&l.valor<0);
     return {recFora,despFora,pesNoPj,prolab,sum};
   }
+  // o lançamento passou pela conta errada? (mesma regra dos avisos acima)
+  function contaErrada(l){
+    const fora = l.categoria!==CAT_PL && l.categoria!==CAT_ENTRE;
+    if(ui.conta==="pj")  return ehNegocio(l) && l.origem!=="pj" &&
+      ((l.valor>0 && RECEITA_CATS.has(l.categoria)) || (l.valor<0 && fora));
+    if(ui.conta==="cpf") return !ehNegocio(l) && l.origem==="pj" && fora;
+    return false;
+  }
   const mesesComDados = () => [...new Set(lancDaConta().map(l=>l.data.slice(0,7)))].sort();
 
   function doMes(){
@@ -1716,6 +1725,7 @@
     const b=ui.busca.trim().toLowerCase();
     const base=doMes().filter(l=>{
       if(ui.fat && !ehFaturamento(l,ui.fat)) return false;
+      if(ui.errada && !contaErrada(l)) return false;
       if(b && !(l.hist.toLowerCase().includes(b)||(l.obs||"").toLowerCase().includes(b))) return false;
       if(ui.cat && l.categoria!==ui.cat) return false;
       if(ui.vinculo && l.vinculo!==ui.vinculo) return false;
@@ -1941,9 +1951,10 @@
       avisos.push('<div class="alerta clic" data-filtrar="Sem categoria" role="button" tabindex="0" style="background:#F7F5EE;border-left-color:var(--ouro)"><div><b>'+
         semCat+' lançamento'+(semCat===1?"":"s")+' sem categoria.</b> Clique para ver e classificar.</div></div>');
     if(foraLugar.length)
-      avisos.push('<div class="alerta"><div><b>'+foraLugar.length+' lançamento'+(foraLugar.length>1?"s":"")+
+      avisos.push('<div class="alerta clic" data-errada="1" role="button" tabindex="0" title="Ver quais são"><div><b>'+foraLugar.length+' lançamento'+(foraLugar.length>1?"s":"")+
         ' pela conta errada (R$ '+brl(foraLugar.reduce((s,l)=>s+Math.abs(l.valor),0))+').</b> '+
-        (ui.conta==="pj"?"Movimentos do negócio passaram pela conta CPF ou cartão pessoal.":"Gastos pessoais passaram pela conta CNPJ.")+'</div></div>');
+        (ui.conta==="pj"?"Movimentos do negócio passaram pela conta CPF ou cartão pessoal.":"Gastos pessoais passaram pela conta CNPJ.")+
+        ' <u>Ver quais são</u></div></div>');
     if(diasNeg.length)
       avisos.push('<div class="alerta"><div><b>'+diasNeg.length+' dia'+(diasNeg.length===1?"":"s")+
         ' no cheque especial.</b> O saldo chegou a R$ '+brl(fundo)+'.</div></div>');
@@ -2490,6 +2501,7 @@
     });
     const chips=[];
     if(ui.fat) chips.push(["fat","Faturamento MEI "+ui.fat+" · R$ "+brl(lista.reduce((a,l)=>a+l.valor,0))]);
+    if(ui.errada) chips.push(["errada","Pela conta errada"]);
     if(ui.busca) chips.push(["busca","“"+ui.busca+"”"]);
     if(ui.cat) chips.push(["cat",ui.cat]);
     if(ui.tipo) chips.push(["tipo",ui.tipo==="e"?"Só entradas":"Só saídas"]);
@@ -2584,13 +2596,16 @@
     $("#fBusca").oninput=e=>{ui.busca=e.target.value;tabela();};
 
     document.getElementById("corpo").onclick=e=>{
+      const er=e.target.closest("[data-errada]");
+      if(er){ ui.errada=!ui.errada; ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem="";ui.fat="";
+        render(); try{document.getElementById("tabelaLanc").scrollIntoView({behavior:"smooth",block:"start"});}catch(_){ } return; }
       const fb=e.target.closest("[data-fat]");
       if(fb){ abrirFaturamento(fb.dataset.fat); return; }
       const vm=e.target.closest("[data-vermais]");
       if(vm){ const k=vm.dataset.vermais==="sai"?"verTodasSai":"verTodasEnt"; ui[k]=!ui[k]; render(); return; }
       const chip=e.target.closest("[data-chip]");
       if(chip){ const k=chip.dataset.chip;
-        if(k==="*"){ ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem="";ui.fat=""; } else ui[k]="";
+        if(k==="*"){ ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem="";ui.fat="";ui.errada=""; } else ui[k]="";
         render(); try{document.getElementById("tabelaLanc").scrollIntoView({block:"start"});}catch(_){ } return; }
       const th=e.target.closest("th[data-sort]"); if(!th||e.target.closest(".col-drag")) return;
       const col=th.dataset.sort;
@@ -2713,7 +2728,7 @@
     const linha=e.target.closest("[data-filtrar]"); if(!linha) return;
     const cat=linha.dataset.filtrar;
     ui.cat = ui.cat===cat ? "" : cat;
-    ui.busca=""; ui.tipo=""; ui.vinculo=""; ui.fat="";
+    ui.busca=""; ui.tipo=""; ui.vinculo=""; ui.fat=""; ui.errada="";
     render();
     try{const tb=document.getElementById("corpoTabela");
       if(tb) tb.closest("table").scrollIntoView({behavior:"smooth",block:"start"});}catch(e){}
@@ -2729,7 +2744,7 @@
     const bt=e.target.closest(".conta-tab"); if(!bt) return;
     if(ui.conta==="dash"||bt.dataset.conta==="dash") ui.mes=null; // dashboard abre em "todos os meses"; contas abrem no mês atual
     ui.conta=bt.dataset.conta; ui.view="mes";
-    ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem=""; ui.fat="";
+    ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem=""; ui.fat=""; ui.errada="";
     render();
   });
 
