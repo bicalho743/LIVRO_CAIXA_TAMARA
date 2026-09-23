@@ -188,6 +188,25 @@
   .cat-val{font-family:var(--serif);font-size:18px;font-variant-numeric:tabular-nums}
   .cat-barra{grid-column:1/-1;height:8px;background:var(--linha-clara);border-radius:4px;overflow:hidden}
   .cat-barra i{display:block;height:100%;border-radius:4px}
+  .cat-nome{flex-wrap:wrap}
+  .cat-meta{flex-basis:100%;padding-left:21px;font-size:11.5px;margin-top:2px;letter-spacing:.02em}
+
+  /* ---- metas por categoria ---- */
+  .metas-tab{width:100%;border-collapse:collapse;margin-top:6px}
+  .metas-tab th{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--cinza);font-weight:500;text-align:left;padding:8px 10px;border-bottom:1px solid var(--linha)}
+  .metas-tab td{padding:10px;border-bottom:1px solid var(--linha-clara);font-size:13.5px;vertical-align:middle}
+  .metas-tab td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .metas-tab input{width:110px;font-family:var(--sans);font-size:13.5px;border:1px solid var(--linha);border-radius:2px;padding:6px 8px;text-align:right}
+  .metas-tab input:focus{outline:2px solid var(--verde-suave);outline-offset:0}
+  .mbar{position:relative;height:10px;background:var(--linha-clara);border-radius:5px;overflow:hidden;min-width:120px}
+  .mbar i{display:block;height:100%;border-radius:5px}
+  .mbar b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--tinta);opacity:.55}
+  .mstat{font-size:12px;margin-top:4px;display:block}
+  .metas-topo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:26px 0 14px}
+  .wa-box{margin-top:34px;padding:18px;background:var(--marfim);border:1px solid var(--linha-clara);border-radius:3px}
+  .wa-box pre{white-space:pre-wrap;font-family:var(--sans);font-size:13px;background:#fff;border:1px solid var(--linha-clara);border-radius:3px;padding:12px;margin:10px 0;max-height:320px;overflow:auto}
+  .wa-box input{font-family:var(--sans);font-size:13px;border:1px solid var(--linha);padding:7px 10px;border-radius:2px;min-width:200px}
+  @media (max-width:720px){ .metas-tab .col-media{display:none} .metas-tab input{width:88px} .mbar{min-width:70px} }
 
   .divisao{display:flex;gap:0;border:1px solid var(--linha);border-radius:2px;margin-top:22px;overflow:hidden}
   .divisao div{flex:1;padding:14px 16px}
@@ -740,7 +759,7 @@
   ].map(r=>({termo:r[0],categoria:r[1],vinculo:r[2],padrao:true}));
 
   /* ================= estado ================= */
-  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{}};
+  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{},metas:{cpf:{},pj:{},faturamento:0},whatsapp:{numero:""}};
   let ui = {mes:null,view:"mes",busca:"",cat:"",tipo:"",vinculo:"",sortCol:"data",sortDir:1,_contaAtual:"pf",conta:"dash"};
 
   /* O que NÃO é gasto nem receita:
@@ -754,7 +773,8 @@
   // pró-labore: no Pessoal é ENTRADA (sua renda); no Negócio é RETIRADA (sai do caixa, mas não é custo)
   const ehRetirada = l => l.categoria===CAT_PL && l.valor<0 && ehNegocio(l);
   const ehMov = l => !CATS_FORA.has(l.categoria);
-  const mesAtual = () => new Date().toISOString().slice(0,7);
+  const hojeISO = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+  const mesAtual = () => hojeISO().slice(0,7);
 
   // ajustes em dados salvos
   function migrar(){
@@ -933,6 +953,12 @@
         .reduce((s,l)=>s+l.valor,0);
       if(recAno>81000*0.8) itens.push(['<span>Faturamento MEI '+ano+' — '+Math.round(recAno/81000*100)+'% do limite de R$ 81 mil</span>',
         'R$ '+brl(recAno), recAno>81000?"#C0392B":"#E08E0B","fat:"+ano]);
+      const ymM=ui.mes==="tudo"?mesAtual():ui.mes;
+      [["cpf","Pessoal"],["pj","Negócio"]].forEach(([ct,nm])=>{
+        const est=metasEstouradas(ct,ymM);
+        if(est.length) itens.push(['<span>Metas estouradas em '+MESES[+ymM.slice(5,7)-1]+' — '+nm+': '+est.map(x=>esc(x.c)).join(", ")+'</span>',
+          '+R$ '+brl(est.reduce((s,x)=>s+x.gasto-x.meta,0)),"#C0392B","metas:"+ct+":"+ymM]);
+      });
       if(r.recFora.length) itens.push(['<span>Receita do negócio recebida fora da conta CNPJ · '+r.recFora.length+'×</span>','R$ '+brl(r.sum(r.recFora)),"#C0392B","pj"]);
       if(r.despFora.length) itens.push(['<span>Despesas do negócio pagas com dinheiro pessoal · '+r.despFora.length+'×</span>','R$ '+brl(r.sum(r.despFora)),"#E08E0B","pj"]);
       if(r.pesNoPj.length) itens.push(['<span>Gastos pessoais pagos pela conta CNPJ · '+r.pesNoPj.length+'×</span>','R$ '+brl(r.sum(r.pesNoPj)),"#C0392B","cpf"]);
@@ -1034,6 +1060,7 @@
       if(sp){
         const alvo=sp.dataset.sepir;
         if(alvo.startsWith("fat:")){ abrirFaturamento(alvo.slice(4)); return; }
+        if(alvo.startsWith("metas:")){ const [,ct,ym]=alvo.split(":"); ui.conta=ct; ui.view="metas"; ui.mes=ym; render(); return; }
         ui.cat=""; ui.tipo=""; ui.origem=""; ui.errada=true; irPara(alvo);
         try{document.getElementById("tabelaLanc").scrollIntoView({behavior:"smooth",block:"start"});}catch(_){ } return; }
       const ds=e.target.closest("[data-dsep]");
@@ -1075,6 +1102,8 @@
         dados.prolabore   = d.prolabore||0;
         dados.faturaAberta = d.faturaAberta||null;
         dados.faturaFechada= d.faturaFechada||null;
+        dados.metas       = normMetas(d.metas);
+        dados.whatsapp    = d.whatsapp||{numero:""};
         migrar();
         dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
         // migração: remover lançamentos do cartão com data > hoje+6 meses (bug antigo)
@@ -1823,6 +1852,7 @@
         d.lancamentos.forEach(l=>{ if(l&&l.id&&!vistos.has(l.id)){dados.lancamentos.push(l);vistos.add(l.id);n++;} });
         Object.assign(dados.saldos,d.saldos||{});
         if(Array.isArray(d.regras)&&d.regras.length) dados.regras=d.regras;
+        if(d.metas) dados.metas=normMetas(d.metas);
         dados.lancamentos.sort((a,b)=>a.data<b.data?-1:1);
         salvar(); render();
         avisar(n?n+" lançamento"+(n===1?"":"s")+" recuperado"+(n===1?"":"s")+".":"O backup não trouxe nada novo.");
@@ -1845,7 +1875,7 @@
     ui._meses=meses;
     const idx=meses.indexOf(ui.mes);
     let h="";
-    if(!comVistas||ui.view==="mes"){
+    if(!comVistas||ui.view==="mes"||ui.view==="metas"){
       h+='<div class="periodo">'+
         '<button data-passo="-1" title="Mês anterior"'+((ui.mes==="tudo"||idx<=0)?" disabled":"")+'>‹</button>'+
         '<select id="selMes" aria-label="Período">'+
@@ -1862,6 +1892,7 @@
     if(comVistas){
       const vs=[["mes","Resumo do mês"]];
       if(meses.length>1) vs.push(["comparar","Comparar meses"]);
+      if(ui.conta==="cpf"||ui.conta==="pj") vs.push(["metas","Metas"]);
       if(ui.conta==="pj") vs.push(["dre","DRE MEI"]);
       vs.push(["regras","Regras"]);
       h+='<div class="vistas" role="tablist">'+vs.map(([v,t])=>
@@ -1872,13 +1903,15 @@
 
   /* ================= desenho da tela ================= */
   function render(){
-    const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null;
+    const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
     marcarConta();
     if(ui.conta==="dash"){ renderDashboard(); return; }
     if(!ui.view) ui.view="mes";
 
     const meses=mesesComDados();
     if(ui.view==="dre"&&ui.conta!=="pj") ui.view="mes";
+    if(ui.view==="metas"&&ui.conta!=="cpf"&&ui.conta!=="pj") ui.view="mes";
+    if(ui.view==="metas"&&ui.mes==="tudo") ui.mes=null;
     if(ui.view==="comparar"&&meses.length<2) ui.view="mes";
     if(!meses.length) ui.mes=null;
     else if(!ui.mes||(ui.mes!=="tudo"&&!meses.includes(ui.mes))) ui.mes=mesPadrao(meses);
@@ -1893,6 +1926,7 @@
     }
     if(ui.view==="comparar"){ comparar(meses); return; }
     if(ui.view==="dre"){ dre(meses); return; }
+    if(ui.view==="metas"){ renderMetas(); return; }
 
     const natureza=visaoNatureza();
     const lista=doMes().filter(l=>!l.ignorado);
@@ -1944,6 +1978,12 @@
     } else nota="Como no banco: a fatura do cartão aparece como um débito único e as compras do cartão não entram.";
 
     const avisos=[];
+    const metasTela = natureza&&(ui.conta==="cpf"||ui.conta==="pj") ? (dados.metas[ui.conta]||{}) : {};
+    if(natureza&&ui.mes!=="tudo"&&(ui.conta==="cpf"||ui.conta==="pj")){
+      const est=metasEstouradas(ui.conta,ui.mes);
+      if(est.length) avisos.push('<div class="alerta clic" data-irmetas="1" role="button" tabindex="0"><div><b>'+est.length+
+        ' categoria'+(est.length>1?"s passaram":" passou")+' da meta:</b> '+est.map(x=>esc(x.c)).join(", ")+'. <u>Ver metas</u></div></div>');
+    }
     if(natureza&&ui.mes!=="tudo"&&fatura&&!nCartao)
       avisos.push('<div class="alerta" style="background:#F7F5EE;border-left-color:var(--ouro)"><div>'+
         '<b>Nenhuma compra do cartão neste mês.</b> Importe a fatura para os gastos do cartão aparecerem aqui.</div></div>');
@@ -1982,7 +2022,7 @@
       '<div class="paineis">'+
         '<div>'+
           '<div class="tit-secao"><h3>'+(natureza?"Onde gastei":"Para onde foi")+'</h3></div>'+
-          (vSai.length?vSai.map(([c,v])=>catLinha(c,v,Math.abs(v)/maiorSaida,false)).join(""):'<p class="sub">Sem gastos neste período.</p>')+
+          (vSai.length?vSai.map(([c,v])=>catLinha(c,v,Math.abs(v)/maiorSaida,false,metasTela[c])).join(""):'<p class="sub">Sem gastos neste período.</p>')+
           verMais("sai",saidas.length,ui.verTodasSai)+
         '</div>'+
         '<div>'+
@@ -2405,6 +2445,196 @@
     };
   }
 
+
+  /* ================= metas por categoria ================= */
+  // dados.metas = { cpf:{categoria:limite mensal}, pj:{...}, faturamento: meta mensal de receita do MEI }
+  function normMetas(m){
+    m=m||{};
+    return {cpf:Object.assign({},m.cpf||{}), pj:Object.assign({},m.pj||{}), faturamento:+m.faturamento||0};
+  }
+  const FORA_DE_META = new Set(["Sem categoria",CAT_PL,"Receita de cliente","Rendimento","Transferência recebida","Reembolso e estorno"]);
+  function catsDeMeta(conta){
+    return catsParaVinculo(conta==="pj"?"PJ":"PF").filter(c=>!CATS_FORA.has(c)&&!FORA_DE_META.has(c));
+  }
+  const daConta = (l,conta) => conta==="pj" ? ehNegocio(l) : !ehNegocio(l);
+  // gasto líquido por categoria no mês (mesma conta da tela "Onde gastei": estornos abatem)
+  function gastosMes(conta, ym){
+    const pc={};
+    dados.lancamentos.forEach(l=>{
+      if(l.ignorado||!ehMov(l)||l.data.slice(0,7)!==ym||!daConta(l,conta)) return;
+      if(conta==="pj"&&ehRetirada(l)) return;
+      pc[l.categoria]=(pc[l.categoria]||0)+l.valor;
+    });
+    const r={}; Object.keys(pc).forEach(c=>{ if(pc[c]<0) r[c]=-pc[c]; });
+    return r;
+  }
+  function receitaMes(ym){
+    return dados.lancamentos.filter(l=>!l.ignorado&&l.valor>0&&ehNegocio(l)&&RECEITA_CATS.has(l.categoria)&&l.data.slice(0,7)===ym)
+      .reduce((s,l)=>s+l.valor,0);
+  }
+  const mesAnterior = (ym,n) => { let [a,m]=ym.split("-").map(Number); m-=n; while(m<1){m+=12;a--;} return a+"-"+String(m).padStart(2,"0"); };
+  function media3(conta, ym){
+    const soma={}, ms=[1,2,3].map(n=>mesAnterior(ym,n));
+    const comDados=ms.filter(m=>dados.lancamentos.some(l=>l.data.slice(0,7)===m&&daConta(l,conta)));
+    comDados.forEach(m=>{ const g=gastosMes(conta,m); Object.keys(g).forEach(c=>soma[c]=(soma[c]||0)+g[c]); });
+    const r={}; if(comDados.length) Object.keys(soma).forEach(c=>r[c]=soma[c]/comDados.length);
+    return r;
+  }
+  // situação da meta: cor, % e ritmo (projeção para o mês inteiro, só no mês corrente)
+  function situacaoMeta(gasto, meta, ym){
+    const pct = meta ? gasto/meta : 0;
+    const [a,m] = ym.split("-").map(Number);
+    const diasMes = new Date(a,m,0).getDate();
+    const hoje = hojeISO();
+    const dia = ym===hoje.slice(0,7) ? +hoje.slice(8,10) : (ym<hoje.slice(0,7)?diasMes:0);
+    const proj = dia&&dia<diasMes ? gasto/dia*diasMes : gasto;
+    let c="#1E8A5F", st="ok";
+    if(pct>1){ c="#C0392B"; st="estourou"; }
+    else if(pct>=0.8 || (dia<diasMes && proj>meta*1.05)){ c="#E08E0B"; st="atencao"; }
+    return {pct, c, st, proj, dia, diasMes};
+  }
+  function metasEstouradas(conta, ym){
+    const g=gastosMes(conta,ym), mt=dados.metas[conta]||{};
+    return Object.keys(mt).filter(c=>mt[c]>0&&(g[c]||0)>mt[c]).map(c=>({c, gasto:g[c], meta:mt[c]}));
+  }
+  const reais0 = v => "R$ "+Math.round(v).toLocaleString("pt-BR");
+
+  function renderMetas(){
+    const conta=ui.conta, ym=ui.mes||mesAtual();
+    const g=gastosMes(conta,ym), med=media3(conta,ym), mt=dados.metas[conta];
+    const cats=catsDeMeta(conta).sort((a,b)=>((mt[b]?1e9:0)+(med[b]||0)+(g[b]||0))-((mt[a]?1e9:0)+(med[a]||0)+(g[a]||0)));
+    const comMeta=cats.filter(c=>mt[c]>0);
+    const totMeta=comMeta.reduce((s,c)=>s+mt[c],0), totGasto=comMeta.reduce((s,c)=>s+(g[c]||0),0);
+    const sitT=situacaoMeta(totGasto,totMeta||1,ym);
+    const estouradas=comMeta.filter(c=>(g[c]||0)>mt[c]).length;
+
+    const linha=c=>{
+      const v=g[c]||0, meta=mt[c]||0, s=situacaoMeta(v,meta,ym);
+      let barra='<span class="sub">—</span>', txt='';
+      if(meta){
+        barra='<div class="mbar"><i style="width:'+Math.min(100,s.pct*100).toFixed(1)+'%;background:'+s.c+'"></i>'+
+          (s.dia&&s.dia<s.diasMes?'<b style="left:'+(s.dia/s.diasMes*100).toFixed(1)+'%" title="Hoje: dia '+s.dia+' de '+s.diasMes+'"></b>':'')+'</div>';
+        txt = s.st==="estourou" ? 'Passou '+reais0(v-meta)
+            : s.dia&&s.dia<s.diasMes&&s.proj>meta*1.05 ? 'No ritmo atual chega a '+reais0(s.proj)
+            : 'Restam '+reais0(meta-v);
+        barra+='<span class="mstat" style="color:'+s.c+'">'+Math.round(s.pct*100)+'% · '+txt+'</span>';
+      }
+      return '<tr><td>'+ponto(c)+esc(c)+'</td>'+
+        '<td class="n col-media">'+(med[c]?reais0(med[c]):'<span class="sub">—</span>')+'</td>'+
+        '<td class="n"><input inputmode="decimal" data-meta="'+esc(c)+'" value="'+(meta?String(meta).replace(".",","):"")+'" placeholder="sem meta" aria-label="Meta mensal de '+esc(c)+'"></td>'+
+        '<td class="n">'+(v?brl(v):'<span class="sub">—</span>')+'</td>'+
+        '<td style="width:34%">'+barra+'</td></tr>';
+    };
+
+    let fat="";
+    if(conta==="pj"){
+      const rec=receitaMes(ym), mf=dados.metas.faturamento||0, pct=mf?rec/mf:0;
+      const c=pct>=1?"#1E8A5F":pct>=0.6?"#E08E0B":"#C0392B";
+      fat='<div class="limite-mei"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">'+
+        '<b>Meta de faturamento do mês</b>'+
+        '<label class="sub" style="margin:0">Meta R$ <input id="metaFat" inputmode="decimal" value="'+(mf?String(mf).replace(".",","):"")+'" placeholder="ex: 8000" style="width:110px;font-family:var(--sans);font-size:13.5px;border:1px solid var(--linha);border-radius:2px;padding:6px 8px;text-align:right"></label></div>'+
+        (mf?'<div class="mbar" style="margin:10px 0 4px"><i style="width:'+Math.min(100,pct*100).toFixed(1)+'%;background:'+c+'"></i></div>'+
+          '<span class="mstat" style="color:'+c+'">R$ '+brl(rec)+' de R$ '+brl(mf)+' ('+Math.round(pct*100)+'%)'+(pct<1?' · faltam '+reais0(mf-rec):' · meta batida')+'</span>'
+          :'<p class="sub" style="margin:6px 0 0">Receita do mês até agora: R$ '+brl(rec)+'</p>')+
+      '</div>';
+    }
+
+    $("#corpo").innerHTML=
+      '<div class="metas-topo"><div class="tit-secao" style="margin:0"><h3>Metas de gasto — '+cap(rotuloMes(ym))+'</h3></div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button class="bt vazado" id="btSugerir" title="Preenche as categorias sem meta com a média dos 3 meses anteriores">Sugerir pela média</button>'+
+        (comMeta.length?'<button class="bt vazado" id="btZerarMetas">Limpar metas</button>':'')+'</div></div>'+
+      '<p class="nota-linha">A meta é um limite mensal por categoria e vale para todos os meses. A linha escura na barra marca o dia de hoje: se a cor passar dela, o gasto está correndo mais rápido que o mês.</p>'+
+      (comMeta.length?'<section class="totais">'+
+        cartao("Metas somadas",totMeta,"",comMeta.length+" categoria"+(comMeta.length>1?"s":"")+" com meta","#2E86DE")+
+        cartao("Gasto nessas categorias",totGasto,"",Math.round(totGasto/totMeta*100)+"% do total das metas",sitT.c)+
+        cartao(estouradas?"Estouraram":"Dentro da meta",estouradas||comMeta.length,estouradas?"neg":"pos",estouradas?(estouradas>1?"categorias acima do limite":"categoria acima do limite"):"todas as categorias",estouradas?"#C0392B":"#1E8A5F").replace(/<small>R\$<\/small>([\d.,]+)/,(m,n)=>n.replace(",00",""))+
+      '</section>':'')+
+      fat+
+      '<div class="rolagem"><table class="metas-tab"><thead><tr><th>Categoria</th><th class="col-media" style="text-align:right">Média 3 meses</th><th style="text-align:right">Meta mensal</th><th style="text-align:right">Gasto no mês</th><th>Andamento</th></tr></thead><tbody>'+
+        cats.map(linha).join("")+'</tbody></table></div>'+
+      waBox(ym)+
+      '<div class="rodape"><span>As metas ficam salvas na nuvem junto com os lançamentos</span><span>Sua casa pronta para viver</span></div>';
+
+    const corpo=$("#corpo");
+    const lerValor=t=>{ let x=String(t||"").replace(/[R$\s]/g,""); if(/^\d{1,3}(\.\d{3})+$/.test(x)) x=x.replace(/\./g,""); const v=numero(x); return isFinite(v)&&v>0?Math.round(v*100)/100:0; };
+    corpo.onchange=e=>{
+      const inp=e.target.closest("[data-meta]");
+      if(inp){ const v=lerValor(inp.value), c=inp.dataset.meta;
+        if(v) dados.metas[conta][c]=v; else delete dados.metas[conta][c];
+        salvar(); renderMetas(); return; }
+      if(e.target.id==="metaFat"){ dados.metas.faturamento=lerValor(e.target.value); salvar(); renderMetas(); return; }
+      if(e.target.id==="waNumero"){ dados.whatsapp={numero:e.target.value.replace(/\D/g,"")}; salvar(); }
+    };
+    corpo.onkeydown=e=>{ if(e.key==="Enter"&&e.target.matches("input")) e.target.blur(); };
+    $("#btSugerir").onclick=()=>{
+      let n=0;
+      cats.forEach(c=>{ if(!mt[c]&&med[c]>=20){ mt[c]=Math.ceil(med[c]/50)*50; n++; } });
+      if(!n){ avisar("Não há média dos últimos 3 meses para sugerir (ou todas já têm meta)."); return; }
+      salvar(); renderMetas(); avisar(n+" meta"+(n>1?"s":"")+" sugerida"+(n>1?"s":"")+" pela média, arredondada"+(n>1?"s":"")+" para cima. Ajuste à vontade.");
+    };
+    const bz=$("#btZerarMetas");
+    if(bz) bz.onclick=()=>confirmar("Limpar as metas desta conta?","As metas de "+(conta==="pj"?"Negócio":"Pessoal")+" serão apagadas. Os lançamentos não mudam.","Limpar")
+      .then(ok=>{ if(!ok) return; dados.metas[conta]={}; salvar(); renderMetas(); });
+    ligarWa();
+  }
+
+  /* ================= resumo para WhatsApp ================= */
+  // mesmo texto que a função automática (supabase/functions/resumo-whatsapp) envia todo dia
+  function textoWhatsApp(ym){
+    ym=ym||mesAtual();
+    const hoje=hojeISO(), dm=d=>d.slice(8,10)+"/"+d.slice(5,7);
+    const ult=dados.lancamentos.reduce((m,l)=>l.data<=hoje&&l.data>m?l.data:m,"");
+    const linhas=['*Livro-caixa · '+dm(hoje)+'*'];
+    if(ult){
+      const doDia=dados.lancamentos.filter(l=>l.data===ult&&!l.ignorado&&ehMov(l)&&l.valor<0&&!ehRetirada(l));
+      const pf=doDia.filter(l=>!ehNegocio(l)).reduce((s,l)=>s-l.valor,0), pj=doDia.filter(ehNegocio).reduce((s,l)=>s-l.valor,0);
+      linhas.push('Último dia com lançamentos: '+dm(ult)+' — gastou '+reais0(pf+pj)+' (Pessoal '+reais0(pf)+' · Negócio '+reais0(pj)+')');
+    }
+    const [a,m]=ym.split("-").map(Number), s0=situacaoMeta(0,1,ym);
+    linhas.push('', '*Metas de '+MESES[m-1]+'*'+(s0.dia&&s0.dia<s0.diasMes?' (dia '+s0.dia+' de '+s0.diasMes+')':''));
+    let alguma=false;
+    [["cpf","Pessoal"],["pj","Negócio"]].forEach(([conta,nome])=>{
+      const mt=dados.metas[conta]||{}, g=gastosMes(conta,ym);
+      const cs=Object.keys(mt).filter(c=>mt[c]>0).sort((x,y)=>(g[y]||0)/mt[y]-(g[x]||0)/mt[x]);
+      if(!cs.length) return; alguma=true;
+      linhas.push('_'+nome+'_');
+      cs.forEach(c=>{
+        const v=g[c]||0, st=situacaoMeta(v,mt[c],ym);
+        const ic=st.st==="estourou"?"🔴":st.st==="atencao"?"🟡":"🟢";
+        linhas.push(ic+' '+c+': '+reais0(v)+' de '+reais0(mt[c])+(st.st==="estourou"?' (+'+reais0(v-mt[c])+')':' ('+Math.round(st.pct*100)+'%)'));
+      });
+    });
+    if(!alguma) linhas.push('Nenhuma meta cadastrada ainda.');
+    if(dados.metas.faturamento){
+      const rec=receitaMes(ym);
+      linhas.push('', '*Faturamento MEI:* '+reais0(rec)+' de '+reais0(dados.metas.faturamento)+' ('+Math.round(rec/dados.metas.faturamento*100)+'%)');
+    }
+    return linhas.join("\n");
+  }
+  function waBox(ym){
+    return '<div class="wa-box"><div class="tit-secao" style="margin:0 0 6px"><h3>Resumo para WhatsApp</h3></div>'+
+      '<p class="sub" style="margin:0">É esta mensagem que o envio automático diário manda. Ela só mostra o que já foi importado no app.</p>'+
+      '<pre id="waTexto">'+esc(textoWhatsApp(ym))+'</pre>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">'+
+        '<input id="waNumero" inputmode="tel" placeholder="Seu WhatsApp com DDD, ex: 31999998888" value="'+esc((dados.whatsapp&&dados.whatsapp.numero)||"")+'">'+
+        '<button class="bt" id="btWaAbrir">Abrir no WhatsApp</button>'+
+        '<button class="bt vazado" id="btWaCopiar">Copiar texto</button>'+
+      '</div></div>';
+  }
+  function ligarWa(){
+    const txt=()=>$("#waTexto").textContent;
+    $("#btWaCopiar").onclick=async()=>{
+      try{ await navigator.clipboard.writeText(txt()); avisar("Resumo copiado."); }
+      catch(_){ avisar("Não consegui copiar. Selecione o texto e copie manualmente.",true); }
+    };
+    $("#btWaAbrir").onclick=()=>{
+      let n=($("#waNumero").value||"").replace(/\D/g,"");
+      if(n && n.length<=11) n="55"+n;
+      window.open("https://wa.me/"+n+"?text="+encodeURIComponent(txt()),"_blank","noopener");
+    };
+  }
+
   /* ================= aba de regras ================= */
   function renderRegras(){
     const semCatCount=lancDaConta().filter(l=>!l.ignorado&&l.categoria==="Sem categoria").length;
@@ -2475,9 +2705,15 @@
       '<div class="num" style="color:'+c+'"><small>R$</small>'+brl(val)+'</div>'+
       '<p class="sub">'+sub+'</p></div>';
   }
-  function catLinha(c,v,frac,entrada){
+  function catLinha(c,v,frac,entrada,meta){
+    let mh="";
+    if(meta&&!entrada&&ui.mes&&ui.mes!=="tudo"){
+      const s=situacaoMeta(Math.abs(v),meta,ui.mes);
+      mh='<span class="cat-meta" style="color:'+s.c+'">'+Math.round(s.pct*100)+'% da meta de '+reais0(meta)+
+        (s.st==="estourou"?' · passou '+reais0(Math.abs(v)-meta):'')+'</span>';
+    }
     return '<div class="cat-linha" role="button" tabindex="0" title="Ver lançamentos de '+esc(c)+'" data-filtrar="'+esc(c)+'">'+
-      '<span class="cat-nome">'+ponto(c)+esc(c)+'</span>'+
+      '<span class="cat-nome">'+ponto(c)+esc(c)+mh+'</span>'+
       '<span class="cat-val'+(entrada?" pos":"")+'">'+brl(Math.abs(v))+'</span>'+
       '<span class="cat-barra"><i style="width:'+(Math.max(frac,.02)*100).toFixed(1)+'%;background:'+cor(c)+'"></i></span></div>';
   }
@@ -2596,6 +2832,7 @@
     $("#fBusca").oninput=e=>{ui.busca=e.target.value;tabela();};
 
     document.getElementById("corpo").onclick=e=>{
+      if(e.target.closest("[data-irmetas]")){ ui.view="metas"; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
       const er=e.target.closest("[data-errada]");
       if(er){ ui.errada=!ui.errada; ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem="";ui.fat="";
         render(); try{document.getElementById("tabelaLanc").scrollIntoView({behavior:"smooth",block:"start"});}catch(_){ } return; }
@@ -2797,6 +3034,7 @@
       dados.regras=REGRAS_PADRAO.slice();
       dados.prolabore=0;
       dados.faturaAberta=null; dados.faturaFechada=null;
+      dados.metas=normMetas();
       ui={mes:null,view:"mes",busca:"",cat:"",tipo:"",vinculo:"",sortCol:"data",sortDir:1,conta:ui.conta||"dash"};
       salvar(); render();
       avisar("Histórico apagado. Importe os extratos novamente.");
@@ -2827,6 +3065,8 @@
         dados.prolabore   = remoto.prolabore||0;
         dados.faturaAberta = remoto.faturaAberta||null;
         dados.faturaFechada= remoto.faturaFechada||null;
+        dados.metas       = normMetas(remoto.metas);
+        dados.whatsapp    = remoto.whatsapp||{numero:""};
         migrar();
         render();
         avisar("Dados carregados da nuvem.");
