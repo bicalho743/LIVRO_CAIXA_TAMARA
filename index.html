@@ -552,6 +552,8 @@
   // ── Supabase ──────────────────────────────────────────────
   const SB_URL  = "https://ejbnjpucrlnnxvqyoduj.supabase.co";
   const SB_KEY  = "sb_publishable_bP2idWNlD39yb_O0ZFMDIQ_tH9ZUO6v";
+  // corrige retorno do Google com "##access_token" (URL que terminava em "#")
+  if(location.hash.startsWith("##")) history.replaceState(null,"",location.pathname+location.hash.slice(1));
   const sb = supabase.createClient(SB_URL, SB_KEY);
 
   let sbUser = null; // usuário autenticado
@@ -616,7 +618,7 @@
         btn.disabled=true; btn.textContent="Aguarde…";
         await sb.auth.signInWithOAuth({
           provider:"google",
-          options:{ redirectTo: location.href }
+          options:{ redirectTo: location.origin + location.pathname }
         });
       };
     }
