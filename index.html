@@ -418,6 +418,23 @@
   .dash-geral .v{font-family:var(--serif);font-size:30px;font-variant-numeric:tabular-nums;line-height:1.15}
   .dash-geral .g-hist{grid-column:1/-1;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--linha);font-size:14px;line-height:1.55;color:var(--tinta)}
   .dash-geral .g-hist b{font-weight:600}
+  /* ---- barra da fatura do cartão ---- */
+  .barra-fatura{display:flex;align-items:center;justify-content:space-between;gap:18px 32px;flex-wrap:wrap;
+    margin-top:24px;padding:20px 26px;background:var(--verde);color:var(--marfim);border-radius:4px;
+    box-shadow:0 6px 18px rgba(47,74,60,.18)}
+  .barra-fatura .bf-rot{font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.8}
+  .barra-fatura .bf-valor{font-family:var(--serif);font-size:42px;font-weight:500;line-height:1.05;margin:4px 0 2px;
+    font-variant-numeric:tabular-nums;color:#fff}
+  .barra-fatura .bf-sub{font-size:13px;opacity:.85}
+  .barra-fatura .bf-lado{display:flex;flex-direction:column;align-items:flex-end;gap:6px;text-align:right;font-size:13px}
+  .barra-fatura .bf-fecha{font-size:15px;color:#fff}
+  .barra-fatura .bf-fecha b{font-weight:600}
+  .barra-fatura .bf-ult{opacity:.8}
+  .barra-fatura .bf-bt{margin-top:4px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.55);
+    border-radius:3px;padding:6px 14px;font:inherit;font-size:12px;letter-spacing:.04em;cursor:pointer}
+  .barra-fatura .bf-bt:hover{background:rgba(255,255,255,.12)}
+  @media (max-width:700px){.barra-fatura{padding:16px 18px}.barra-fatura .bf-valor{font-size:34px}
+    .barra-fatura .bf-lado{align-items:flex-start;text-align:left}}
   .cascata{border:1px solid var(--linha);border-radius:4px;padding:6px 16px;background:#fff;max-width:720px}
   .cascata.compacto{margin:-6px 0 18px;padding:4px 12px;max-width:none;background:var(--marfim);border-color:var(--linha-clara)}
   .cas-l{display:flex;justify-content:space-between;gap:14px;padding:8px 0;font-size:13.5px;align-items:baseline}
@@ -990,10 +1007,10 @@
         '<div class="g-num"><span class="rot">Gastou no total</span><div class="v">R$ '+brl(gS)+'</div></div>'+
         '<div class="g-num"><span class="rot">'+(gR<0?"Faltou":"Sobrou")+' no total</span><div class="v" style="color:'+(gR<0?"#C0392B":"#1E8A5F")+'">R$ '+brl(gR)+'</div></div>'+
         (historia?'<p class="g-hist">'+historia+'</p>':'')+
-        (linhaFatura()?'<p class="g-hist">'+linhaFatura()+'</p>':'')+
       '</section>' : "";
 
     $("#corpo").innerHTML=
+      barraFatura()+
       faixa+
       '<div class="dash-topo" style="margin-top:22px">'+
         '<p class="nota-linha" style="margin:0;max-width:62ch">Compras do cartão contam na data da compra. '+
@@ -1572,23 +1589,39 @@
            (repetidos?" · "+repetidos+" já existia"+(repetidos===1?"":"m"):"")+
            (ehAberta?" · fatura em aberto: R$ "+brl(somaAberta)+(pendTotal?" (+ R$ "+brl(pendTotal)+" em processamento)":""):""));
   }
-  function linhaFatura(){
+  function barraFatura(){
     const a=dados.faturaAberta, f=dados.faturaFechada;
+    if(!a && !(f&&f.total!=null)) return "";
     const dm = iso => iso ? iso.slice(8,10)+"/"+iso.slice(5,7) : "";
-    const partes=[];
     const hoje = new Date().toISOString().slice(0,10);
+    const dias = iso => Math.round((new Date(iso+"T12:00:00")-new Date(hoje+"T12:00:00"))/864e5);
+    const bt = '<button class="bf-bt" onclick="document.getElementById(\'arqPdf\').click()">Atualizar fatura (PDF)</button>';
+    const ult = (f&&f.total!=null) ? '<span class="bf-ult">Última fechada: R$ '+brl(f.total)+
+        (f.vencimento?(f.vencimento<hoje?' · venceu em ':' · vence em ')+dm(f.vencimento):'')+'</span>' : "";
     if(a && (!f || (f.fechadaEm||"") < a.atualizadoEm)){
       const cart = a.cartao!=="Cartão" ? a.cartao : (f&&f.cartao);
       const fecha = a.fechamento || (f&&f.proxFechamento>=a.atualizadoEm ? f.proxFechamento : "");
-      partes.push('💳 Fatura do cartão em aberto'+(cart?' ('+esc(cart)+')':'')+
-        ': <b>R$ '+brl(a.total)+'</b> até '+dm(a.atualizadoEm)+
-        (a.pendente?' + R$ '+brl(a.pendente)+' em processamento':'')+
-        (fecha?' · fecha em '+dm(fecha):'')+'.');
+      let txtFecha = "";
+      if(fecha){ const d=dias(fecha);
+        txtFecha = d>1 ? 'Fecha em <b>'+dm(fecha)+'</b> · faltam '+d+' dias'
+                 : d===1 ? 'Fecha <b>amanhã</b> ('+dm(fecha)+')'
+                 : d===0 ? 'Fecha <b>hoje</b>'
+                 : 'Fechou em '+dm(fecha)+' — importe a fatura fechada'; }
+      return '<section class="barra-fatura">'+
+        '<div><div class="bf-rot">Fatura do cartão em aberto'+(cart?' · '+esc(cart):'')+'</div>'+
+          '<div class="bf-valor">R$ '+brl(a.total)+'</div>'+
+          '<div class="bf-sub">compras até '+dm(a.atualizadoEm)+
+            (a.pendente?' · + R$ '+brl(a.pendente)+' em processamento':'')+'</div></div>'+
+        '<div class="bf-lado">'+(txtFecha?'<span class="bf-fecha">'+txtFecha+'</span>':'')+ult+bt+'</div>'+
+      '</section>';
     }
-    if(f && f.total!=null)
-      partes.push('Última fatura fechada: R$ '+brl(f.total)+
-        (f.vencimento?(f.vencimento<hoje?' · venceu em ':' · vence em ')+dm(f.vencimento):'')+'.');
-    return partes.join(' ');
+    // sem fatura em aberto importada: mostra a última fechada
+    return '<section class="barra-fatura">'+
+      '<div><div class="bf-rot">Última fatura do cartão'+(f.cartao?' · '+esc(f.cartao):'')+'</div>'+
+        '<div class="bf-valor">R$ '+brl(f.total)+'</div>'+
+        '<div class="bf-sub">'+(f.vencimento?(f.vencimento<hoje?'venceu em ':'vence em ')+dm(f.vencimento):'')+'</div></div>'+
+      '<div class="bf-lado"><span class="bf-ult">Importe a fatura atual do BB para ver o valor em aberto</span>'+bt+'</div>'+
+    '</section>';
   }
   const visaoNatureza = () => ui.conta==="cpf"||ui.conta==="pj";
   function lancDaConta(){
