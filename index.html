@@ -2581,41 +2581,41 @@
 
   /* ================= resumo para WhatsApp ================= */
   // mesmo texto que a função automática (supabase/functions/resumo-whatsapp) envia todo dia
-  function textoWhatsApp(ym){
-    ym=ym||mesAtual();
+  // uma mensagem por conta: "cpf" (Pessoal) ou "pj" (Negócio). Mesmo texto da função automática (supabase/functions/resumo-whatsapp)
+  function textoWhatsApp(ym, conta){
+    ym=ym||mesAtual(); conta=conta==="pj"?"pj":"cpf";
+    const nome=conta==="pj"?"Negócio":"Pessoal";
     const hoje=hojeISO(), dm=d=>d.slice(8,10)+"/"+d.slice(5,7);
-    const ult=dados.lancamentos.reduce((m,l)=>l.data<=hoje&&l.data>m?l.data:m,"");
-    const linhas=['*Livro-caixa · '+dm(hoje)+'*'];
+    const daC=l=>conta==="pj"?ehNegocio(l):!ehNegocio(l);
+    const ult=dados.lancamentos.reduce((m,l)=>l.data<=hoje&&l.data>m&&daC(l)?l.data:m,"");
+    const linhas=['*Livro-caixa · '+nome+' · '+dm(hoje)+'*'];
     if(ult){
-      const doDia=dados.lancamentos.filter(l=>l.data===ult&&!l.ignorado&&ehMov(l)&&l.valor<0&&!ehRetirada(l));
-      const pf=doDia.filter(l=>!ehNegocio(l)).reduce((s,l)=>s-l.valor,0), pj=doDia.filter(ehNegocio).reduce((s,l)=>s-l.valor,0);
-      linhas.push('Último dia com lançamentos: '+dm(ult)+' — gastou '+reais0(pf+pj)+' (Pessoal '+reais0(pf)+' · Negócio '+reais0(pj)+')');
+      const g=dados.lancamentos.filter(l=>l.data===ult&&daC(l)&&!l.ignorado&&ehMov(l)&&l.valor<0&&!ehRetirada(l)).reduce((s,l)=>s-l.valor,0);
+      linhas.push('Último dia com lançamentos: '+dm(ult)+' — gastou '+reais0(g));
     }
     const [a,m]=ym.split("-").map(Number), s0=situacaoMeta(0,1,ym);
-    linhas.push('', '*Metas de '+MESES[m-1]+'*'+(s0.dia&&s0.dia<s0.diasMes?' (dia '+s0.dia+' de '+s0.diasMes+')':''));
-    let alguma=false;
-    [["cpf","Pessoal"],["pj","Negócio"]].forEach(([conta,nome])=>{
-      const mt=dados.metas[conta]||{}, g=gastosMes(conta,ym);
-      const cs=Object.keys(mt).filter(c=>mt[c]>0).sort((x,y)=>(g[y]||0)/mt[y]-(g[x]||0)/mt[x]);
-      if(!cs.length) return; alguma=true;
-      linhas.push('_'+nome+'_');
-      cs.forEach(c=>{
-        const v=g[c]||0, st=situacaoMeta(v,mt[c],ym);
-        const ic=st.st==="estourou"?"🔴":st.st==="atencao"?"🟡":"🟢";
-        linhas.push(ic+' '+c+': '+reais0(v)+' de '+reais0(mt[c])+(st.st==="estourou"?' (+'+reais0(v-mt[c])+')':' ('+Math.round(st.pct*100)+'%)'));
-      });
-    });
-    if(!alguma) linhas.push('Nenhuma meta cadastrada ainda.');
-    if(dados.metas.faturamento){
+    const g=gastosMes(conta,ym), totG=Object.values(g).reduce((x,y)=>x+y,0);
+    linhas.push('', '*'+cap(MESES[m-1])+'*'+(s0.dia&&s0.dia<s0.diasMes?' (dia '+s0.dia+' de '+s0.diasMes+')':''));
+    if(conta==="pj"){
       const rec=receitaMes(ym);
-      linhas.push('', '*Faturamento MEI:* '+reais0(rec)+' de '+reais0(dados.metas.faturamento)+' ('+Math.round(rec/dados.metas.faturamento*100)+'%)');
-    }
+      linhas.push('Faturou '+reais0(rec)+(dados.metas.faturamento?' de '+reais0(dados.metas.faturamento)+' ('+Math.round(rec/dados.metas.faturamento*100)+'%)':''));
+      linhas.push('Gastou '+reais0(totG)+' · '+(rec-totG<0?'prejuízo ':'lucro ')+reais0(Math.abs(rec-totG)));
+    } else linhas.push('Gastou '+reais0(totG));
+    const mt=dados.metas[conta]||{};
+    const cs=Object.keys(mt).filter(c=>mt[c]>0).sort((x,y)=>(g[y]||0)/mt[y]-(g[x]||0)/mt[x]);
+    linhas.push('', '*Metas*');
+    if(!cs.length) linhas.push('Nenhuma meta cadastrada ainda.');
+    cs.forEach(c=>{
+      const v=g[c]||0, st=situacaoMeta(v,mt[c],ym);
+      const ic=st.st==="estourou"?"🔴":st.st==="atencao"?"🟡":"🟢";
+      linhas.push(ic+' '+c+': '+reais0(v)+' de '+reais0(mt[c])+(st.st==="estourou"?' (+'+reais0(v-mt[c])+')':' ('+Math.round(st.pct*100)+'%)'));
+    });
     return linhas.join("\n");
   }
   function waBox(ym){
     return '<div class="wa-box"><div class="tit-secao" style="margin:0 0 6px"><h3>Resumo para WhatsApp</h3></div>'+
-      '<p class="sub" style="margin:0">É esta mensagem que o envio automático diário manda. Ela só mostra o que já foi importado no app.</p>'+
-      '<pre id="waTexto">'+esc(textoWhatsApp(ym))+'</pre>'+
+      '<p class="sub" style="margin:0">É a mensagem de '+(ui.conta==="pj"?"Negócio":"Pessoal")+' que o envio automático manda todo dia (Pessoal e Negócio chegam separados). Ela só mostra o que já foi importado no app.</p>'+
+      '<pre id="waTexto">'+esc(textoWhatsApp(ym,ui.conta))+'</pre>'+
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">'+
         '<input id="waNumero" inputmode="tel" placeholder="Seu WhatsApp com DDD, ex: 31999998888" value="'+esc((dados.whatsapp&&dados.whatsapp.numero)||"")+'">'+
         '<button class="bt" id="btWaAbrir">Abrir no WhatsApp</button>'+
