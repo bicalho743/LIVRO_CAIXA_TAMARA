@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
     const texto = montarTexto(data.valor);
     const soTeste = new URL(req.url).searchParams.get("teste") === "1"; // ?teste=1 mostra o texto sem enviar
     const envio = soTeste ? "(teste: não enviado)" : await enviarWhatsApp(texto);
-    return new Response("CallMeBot: " + envio.slice(0, 300) + "\n\n" + texto, { headers: { "content-type": "text/plain; charset=utf-8" } });
+    return new Response("CallMeBot: " + (envio.length > 400 ? "…" + envio.slice(-400) : envio) + "\n\n" + texto, { headers: { "content-type": "text/plain; charset=utf-8" } });
   } catch (e) {
     console.error(e);
     return new Response("erro: " + (e as Error).message, { status: 500 });
