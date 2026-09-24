@@ -96,8 +96,9 @@ async function enviarWhatsApp(texto: string) {
     "&text=" + encodeURIComponent(texto) + "&apikey=" + encodeURIComponent((Deno.env.get("CALLMEBOT_APIKEY") || "").trim());
   const r = await fetch(url);
   // o CallMeBot responde HTML e muitas vezes status 200 mesmo quando recusa; guardamos o texto para diagnóstico
-  const corpo = (await r.text()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  console.log("CallMeBot", r.status, corpo.slice(0, 300));
+  const bruto = await r.text();
+  console.log("CallMeBot bruto", r.status, bruto.slice(0, 4000)); // resposta completa, para diagnóstico
+  const corpo = bruto.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (!r.ok) throw new Error("CallMeBot " + r.status + ": " + corpo.slice(0, 300));
   return corpo;
 }
@@ -112,7 +113,8 @@ Deno.serve(async (req) => {
       .eq("user_id", Deno.env.get("LC_USER_ID")!).eq("chave", "livro-caixa:v1").maybeSingle();
     if (error) throw error;
     if (!data) return new Response("sem dados", { status: 404 });
-    const texto = montarTexto(data.valor);
+    const curto = new URL(req.url).searchParams.get("curto") === "1"; // ?curto=1 manda só uma linha de teste
+    const texto = curto ? "Teste do Livro-caixa: envio funcionando." : montarTexto(data.valor);
     const soTeste = new URL(req.url).searchParams.get("teste") === "1"; // ?teste=1 mostra o texto sem enviar
     const envio = soTeste ? "(teste: não enviado)" : await enviarWhatsApp(texto);
     return new Response("CallMeBot: " + (envio.length > 400 ? "…" + envio.slice(-400) : envio) + "\n\n" + texto, { headers: { "content-type": "text/plain; charset=utf-8" } });
