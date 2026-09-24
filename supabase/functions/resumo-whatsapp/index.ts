@@ -90,11 +90,15 @@ function montarTexto(dados: any): string {
 async function enviarWhatsApp(texto: string) {
   // CallMeBot: gratuito, só envia para o seu próprio número (ideal para lembrete pessoal).
   // Para trocar por Z-API, Evolution API ou a API oficial da Meta, basta mudar esta função.
-  const url = "https://api.callmebot.com/whatsapp.php?phone=" + encodeURIComponent(Deno.env.get("WA_TELEFONE")!) +
-    "&text=" + encodeURIComponent(texto) + "&apikey=" + encodeURIComponent(Deno.env.get("CALLMEBOT_APIKEY")!);
+  let fone = (Deno.env.get("WA_TELEFONE") || "").replace(/[^\d+]/g, "");
+  if (!fone.startsWith("+")) fone = "+" + fone;
+  const url = "https://api.callmebot.com/whatsapp.php?phone=" + encodeURIComponent(fone) +
+    "&text=" + encodeURIComponent(texto) + "&apikey=" + encodeURIComponent((Deno.env.get("CALLMEBOT_APIKEY") || "").trim());
   const r = await fetch(url);
-  const corpo = await r.text();
-  if (!r.ok) throw new Error("CallMeBot " + r.status + ": " + corpo.slice(0, 200));
+  // o CallMeBot responde HTML e muitas vezes status 200 mesmo quando recusa; guardamos o texto para diagnóstico
+  const corpo = (await r.text()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  console.log("CallMeBot", r.status, corpo.slice(0, 300));
+  if (!r.ok) throw new Error("CallMeBot " + r.status + ": " + corpo.slice(0, 300));
   return corpo;
 }
 
@@ -110,8 +114,8 @@ Deno.serve(async (req) => {
     if (!data) return new Response("sem dados", { status: 404 });
     const texto = montarTexto(data.valor);
     const soTeste = new URL(req.url).searchParams.get("teste") === "1"; // ?teste=1 mostra o texto sem enviar
-    if (!soTeste) await enviarWhatsApp(texto);
-    return new Response(texto, { headers: { "content-type": "text/plain; charset=utf-8" } });
+    const envio = soTeste ? "(teste: não enviado)" : await enviarWhatsApp(texto);
+    return new Response("CallMeBot: " + envio.slice(0, 300) + "\n\n" + texto, { headers: { "content-type": "text/plain; charset=utf-8" } });
   } catch (e) {
     console.error(e);
     return new Response("erro: " + (e as Error).message, { status: 500 });
