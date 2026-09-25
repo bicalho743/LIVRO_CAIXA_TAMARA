@@ -538,6 +538,7 @@
       <p>Tâmara Cavalcante · Organizer</p>
     </div>
     <div class="acoes">
+      <button class="bt" id="btPendentes" style="display:none" title="Lançamentos capturados das notificações do banco no celular">Pendentes do celular</button>
       <div class="menu-wrap">
         <button class="bt" id="btImportarMenu" aria-haspopup="true" aria-expanded="false">Importar ▾</button>
         <div class="menu" id="menuImportar" hidden>
@@ -889,6 +890,122 @@
       salvar(); render();
       avisar("Lançamento adicionado na conta "+(conta==="pj"?"CNPJ":"CPF")+".");
     });
+  }
+
+  /* ================= pendentes do celular (MacroDroid → Supabase) =================
+     A notificação do banco chega na tabela "pendentes" (função captura-notificacao).
+     Aqui você confere, escolhe CPF/CNPJ e categoria, e só então entra no livro-caixa.
+     Nada mexe no JSON principal fora deste fluxo, então não há risco de sobrescrever dados. */
+  const OBS_CONFERIR = "Conferir: capturado do celular";
+  let pendentes = [];
+
+  async function carregarPendentes(){
+    if(!sbUser){ pendentes=[]; }
+    else{
+      try{
+        const { data, error } = await sb.from("pendentes").select("*").eq("importado",false)
+          .order("data",{ascending:true}).order("id",{ascending:true});
+        if(error) throw error;
+        pendentes = data||[];
+      }catch(e){ pendentes=[]; console.warn("pendentes:", e.message||e); }
+    }
+    const b=$("#btPendentes");
+    if(b){
+      b.style.display = pendentes.length ? "" : "none";
+      b.textContent = "Pendentes do celular ("+pendentes.length+")";
+    }
+  }
+
+  function opcoesCat(conta, sug){
+    const lista = catsParaVinculo(conta==="pj"?"PJ":"PF").slice();
+    if(sug && !lista.includes(sug)) lista.push(sug);
+    return lista.map(x=>'<option'+(x===sug?' selected':'')+'>'+esc(x)+'</option>').join("");
+  }
+
+  async function abrirPendentes(){
+    await carregarPendentes();
+    if(!pendentes.length){ avisar("Nenhum lançamento pendente."); return; }
+    const sug = {};   // sugestão de categoria/vínculo por pendente
+    pendentes.forEach(p=>{
+      const c = classificar(p.hist, +p.valor);
+      sug[p.id] = {categoria:c.categoria, vinculo:c.vinculo};
+    });
+    const linhas = pendentes.map(p=>{
+      const dm = p.data.slice(8,10)+"/"+p.data.slice(5,7);
+      const neg = +p.valor<0;
+      return '<div style="border-top:1px solid var(--linha,#ddd);padding:10px 0">'+
+        '<div style="display:flex;justify-content:space-between;gap:12px;font-size:14px">'+
+          '<span>'+esc(dm)+' · '+esc(p.hist.replace(/^Pix - (Enviado|Recebido) - \d{2}\/\d{2} /,"Pix "+(neg?"enviado":"recebido")+" · "))+
+            (p.revisar?' <b style="color:#b45309">(conferir)</b>':'')+'</span>'+
+          '<b style="white-space:nowrap;color:'+(neg?'#a33':'#2c6e49')+'">'+(neg?"−":"+")+' R$ '+brl(Math.abs(+p.valor))+'</b>'+
+        '</div>'+
+        '<div class="modal-duo" style="margin-top:6px">'+
+          '<label>Conta<select name="conta_'+p.id+'" data-pend="'+p.id+'">'+
+            '<option value="pf"'+(p.origem!=="pj"?' selected':'')+'>CPF — Pessoal</option>'+
+            '<option value="pj"'+(p.origem==="pj"?' selected':'')+'>CNPJ — MEI</option>'+
+            '<option value="descartar">Descartar</option></select></label>'+
+          '<label>Categoria<select name="cat_'+p.id+'" id="pcat_'+p.id+'">'+
+            opcoesCat(p.origem,sug[p.id].categoria)+'</select></label>'+
+        '</div></div>';
+    }).join("");
+
+    const caixa = $("#modalCaixa");
+    // ao trocar a conta, refaz a lista de categorias mantendo a escolha quando possível
+    caixa.onchange = e=>{
+      const s = e.target.closest("select[data-pend]"); if(!s) return;
+      const cat = document.getElementById("pcat_"+s.dataset.pend); if(!cat) return;
+      const atual = cat.value;
+      cat.innerHTML = opcoesCat(s.value==="pj"?"pj":"pf", atual);
+    };
+    const f = await modal(
+      '<h3 class="modal-tit">Capturados do celular ('+pendentes.length+')</h3>'+
+      '<form onsubmit="return false" style="max-height:60vh;overflow:auto">'+linhas+'</form>'+
+      '<div class="modal-acoes">'+
+        '<button type="button" class="bt vazado" data-modal="cancelar">Deixar para depois</button>'+
+        '<button type="button" class="bt" data-modal="ok">Importar</button>'+
+      '</div>'
+    );
+    caixa.onchange = null;
+    if(!f) return;
+
+    const usados = new Set(dados.lancamentos.map(l=>l.id));
+    const marcar = [];
+    let novos = 0, descartados = 0, ultimo = "";
+    pendentes.forEach(p=>{
+      const acao = f["conta_"+p.id]; if(!acao) return;
+      marcar.push(p.id);
+      if(acao==="descartar"){ descartados++; return; }
+      const id = p.data+"|notif|"+p.id+"|"+String(p.hist).slice(0,42);
+      if(usados.has(id)) return;                       // já entrou numa tentativa anterior
+      const cat = f["cat_"+p.id] || sug[p.id].categoria;
+      const vinc = acao==="pj" ? "PJ" : (cat===sug[p.id].categoria ? sug[p.id].vinculo : "PF");
+      dados.lancamentos.push({id:id,data:p.data,hist:p.hist,valor:+p.valor,doc:"",categoria:cat,
+        vinculo:vinc,obs:p.revisar?OBS_CONFERIR:"",origem:acao,notif:true});
+      usados.add(id); novos++; ultimo = p.data>ultimo?p.data:ultimo;
+    });
+    if(!marcar.length) return;
+    try{
+      dados.lancamentos.sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);
+      await salvarImediato();                          // primeiro grava no livro-caixa…
+      const { error } = await sb.from("pendentes").update({importado:true}).in("id",marcar);
+      if(error) throw error;                           // …depois baixa da fila
+    }catch(e){
+      avisar("Não consegui concluir. Nada foi perdido; tente de novo.",true);
+      console.error(e);
+    }
+    if(novos && ui.conta!=="dash" && ultimo){ ui.mes=ultimo.slice(0,7); ui.view="mes"; }
+    render(); carregarPendentes();
+    avisar(novos+" lançamento"+(novos===1?"":"s")+" importado"+(novos===1?"":"s")+
+           (descartados?" · "+descartados+" descartado"+(descartados===1?"":"s"):""));
+  }
+
+  /* Quando o extrato chega, o lançamento vindo da notificação (provisório) é substituído pelo do extrato
+     — mesma conta, mesmo valor, até 1 dia de diferença — herdando a categoria que você escolheu. */
+  function tomarProvisorio(iso, valor, origem){
+    const t = new Date(iso+"T12:00:00").getTime();
+    const i = dados.lancamentos.findIndex(l=>l.notif && (l.origem||"pf")===origem &&
+      Math.abs(l.valor-valor)<0.005 && Math.abs(new Date(l.data+"T12:00:00").getTime()-t)<=36*3600*1000);
+    return i<0 ? null : dados.lancamentos.splice(i,1)[0];
   }
 
   /* ================= dashboard CPF × CNPJ ================= */
@@ -1277,9 +1394,11 @@
       }
       if(existentes.has(id)){ repetidos++; continue; }
       const c=classificar(hist,valor);
+      const pv=tomarProvisorio(iso,valor,ui._contaAtual||"pf");
+      if(pv){ c.categoria=pv.categoria; c.vinculo=pv.vinculo; }
       if(c.categoria!=="Sem categoria") prontos++;
       dados.lancamentos.push({id:id,data:iso,hist:hist,valor:valor,doc:doc,
-                              categoria:c.categoria,vinculo:c.vinculo,obs:"",
+                              categoria:c.categoria,vinculo:c.vinculo,obs:(pv&&pv.obs!==OBS_CONFERIR)?pv.obs:"",
                               origem:ui._contaAtual||"pf"});
       existentes.add(id); novos++;
       mesesTocados.add(iso.slice(0,7));
@@ -1417,8 +1536,10 @@
       }
       if(existentes.has(id)){repetidos++;continue;}
       const c = classificar(hist,val);
+      const pv = tomarProvisorio(iso,val,ui._contaAtual||"pf");
+      if(pv){ c.categoria=pv.categoria; c.vinculo=pv.vinculo; }
       if(c.categoria!=="Sem categoria") prontos++;
-      dados.lancamentos.push({id,data:iso,hist,valor:val,doc,categoria:c.categoria,vinculo:c.vinculo,obs:"",origem:ui._contaAtual||"pf"});
+      dados.lancamentos.push({id,data:iso,hist,valor:val,doc,categoria:c.categoria,vinculo:c.vinculo,obs:(pv&&pv.obs!==OBS_CONFERIR)?pv.obs:"",origem:ui._contaAtual||"pf"});
       existentes.add(id); novos++;
       mesesTocados.add(iso.slice(0,7));
     }
@@ -3043,6 +3164,8 @@
   $("#btRestaurar").onclick=()=>$("#arqJson").click();
   $("#arqJson").onchange=e=>{ if(e.target.files[0]) restaurarBackup(e.target.files[0]); e.target.value=""; };
   $("#btLancar").onclick=()=>adicionarManual(ui.conta==="pj"?"pj":"pf");
+  $("#btPendentes").onclick=()=>abrirPendentes();
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) carregarPendentes(); });
 
   // listener de sessão — dispara quando Google redireciona de volta
   sb.auth.onAuthStateChange(async(event, session)=>{
@@ -3072,9 +3195,10 @@
         avisar("Dados carregados da nuvem.");
       }
     }
+    carregarPendentes();
   });
 
-  carregar().then(render);
+  carregar().then(()=>{ render(); carregarPendentes(); });
 })();
 </script>
 
