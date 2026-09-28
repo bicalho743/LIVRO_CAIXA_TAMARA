@@ -1,4 +1,6 @@
 // Supabase Edge Function: envia todo dia o resumo das metas do Livro-caixa pelo WhatsApp.
+// Cada mensagem (Pessoal e Negócio) traz o link da planilha do mês no layout da aba LANÇAMENTOS.
+// O link aponta para esta própria função (?planilha=AAAA-MM&conta=cpf|pj&k=...), que gera o .xlsx na hora.
 // Chamado pelo agendamento (pg_cron) descrito em supabase/LEIA-ME.md.
 //
 // Secrets necessários (supabase secrets set ...):
@@ -9,8 +11,10 @@
 // SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já existem automaticamente nas Edge Functions.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import * as XLSX from "npm:xlsx@0.18.5";
 
-type Lanc = { data: string; valor: number; categoria: string; vinculo: string; ignorado?: boolean };
+type Lanc = { data: string; valor: number; categoria: string; vinculo: string; ignorado?: boolean;
+              hist?: string; origem?: string; doc?: string; tipo?: string };
 
 // mesmas regras do index.html
 const CAT_PL = "Pró-labore (retirada MEI)";
@@ -86,6 +90,57 @@ function montarTexto(dados: any, conta: "cpf" | "pj"): string {
   return linhas.join("\n");
 }
 
+// ---- planilha do mês (mesmo layout da aba LANÇAMENTOS do Solano) ----
+// colunas a partir da B: DATA | HISTÓRICO | VALOR | BANCO | CATEGORIA | SUBCATEGORIA | FIXO/VARIÁVEL | MÊS
+const MES_PL = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+const GRUPO_PL: Record<string, string> = {
+  "Receita de cliente": "receita", "Reembolso e estorno": "receita", "Rendimento": "receita", "Transferência recebida": "receita",
+  "Mercado e padaria": "supermercado", "Alimentação fora": "bar/restaurante", "Farmácia": "saúde",
+  "Casa e manutenção": "casa", "Telefone e internet": "casa", "Assinaturas digitais": "casa",
+  "Transporte": "transporte", "Estética e cuidados": "diversos", "Vestuário e acessórios": "diversos",
+  "Presentes e doações": "diversos", "Compras físicas": "diversos", "Compras online": "diversos",
+  "Lazer e entretenimento": "lazer", "Juros e IOF": "financiamento e dividas", "Seguros": "financiamento e dividas",
+  "Material de trabalho": "negócio", "Marketing": "negócio", "Serviços do negócio": "negócio", "Produtos para venda": "negócio",
+  "Impostos e taxas": "negócio", "Pró-labore (retirada MEI)": "negócio",
+  "Aplicação e resgate": "investimento", "Transferência entre minhas contas": "transferência",
+  "Transferência enviada": "transferência", "Transferência família": "transferência", "Cartão de crédito": "cartão",
+};
+const pareceBanco = (h: string) => /^(PIX|PAY|RSCSS|RSHOP|RSCCS|DEV PIX|REND|SISPAG|INT |DA |TED|DOC|COR |JUROS|DDA|SAQUE|FATURA|FINANC|CONTRB|TAR|ON |BOLETO|COMPRA|Pix -|Compra com)/i.test(h);
+const bancoPL = (l: Lanc) => l.origem === "cartao" ? (String(l.doc || "").trim() || "cartão") : l.origem === "pj" ? "CNPJ" : "CPF";
+const tipoPL = (l: Lanc) => l.tipo || (l.data.slice(8, 10) === "01" && !pareceBanco(l.hist || "") ? "FIXO" : "VARIÁVEL");
+
+function planilhaMes(ls: Lanc[], ym: string, conta: "cpf" | "pj"): Uint8Array {
+  const doMes = ls.filter((l) => !l.ignorado && l.data.slice(0, 7) === ym && (conta === "pj") === ehNegocio(l))
+    .sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+  const aoa: any[][] = [["◀  VOLTAR AO ÍNDICE"], [], ["", "  LANÇAMENTOS  —  " + (conta === "pj" ? "NEGÓCIO" : "PESSOAL")]];
+  for (const l of doMes) {
+    const [a, m, d] = l.data.split("-").map(Number);
+    const cat = l.categoria || "Sem categoria";
+    aoa.push(["", Date.UTC(a, m - 1, d) / 864e5 + 25569, l.hist || "", l.valor, bancoPL(l),
+      cat === "Sem categoria" ? "" : (GRUPO_PL[cat] || "diversos"), cat === "Sem categoria" ? "" : cat.toLowerCase(), tipoPL(l), MES_PL[m - 1]]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  for (let i = 4; i <= aoa.length; i++) {
+    if (ws["B" + i]) ws["B" + i].z = "dd/mm/yyyy";
+    if (ws["D" + i]) ws["D" + i].z = "#,##0.00_);[Red](#,##0.00)";
+  }
+  ws["!cols"] = [{ wch: 4 }, { wch: 12 }, { wch: 40 }, { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 24 }, { wch: 10 }, { wch: 6 }];
+  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, { s: { r: 2, c: 1 }, e: { r: 2, c: 8 } }];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "LANÇAMENTOS");
+  return new Uint8Array(XLSX.write(wb, { type: "array", bookType: "xlsx" }));
+}
+
+// chave do link: HMAC com o CRON_SECRET (só quem recebeu a mensagem consegue baixar)
+async function chaveLink(ym: string, conta: string): Promise<string> {
+  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(Deno.env.get("CRON_SECRET") || ""),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode("planilha:" + ym + ":" + conta)));
+  return [...sig.slice(0, 12)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function linkPlanilha(ym: string, conta: string) {
+  return Deno.env.get("SUPABASE_URL") + "/functions/v1/resumo-whatsapp?planilha=" + ym + "&conta=" + conta + "&k=" + await chaveLink(ym, conta);
+}
+
 async function enviarWhatsApp(texto: string) {
   // CallMeBot: gratuito, só envia para o seu próprio número (ideal para lembrete pessoal).
   // Para trocar por Z-API, Evolution API ou a API oficial da Meta, basta mudar esta função.
@@ -103,19 +158,34 @@ async function enviarWhatsApp(texto: string) {
 }
 
 Deno.serve(async (req) => {
-  if (req.headers.get("x-cron-secret") !== Deno.env.get("CRON_SECRET")) {
+  const q = new URL(req.url).searchParams;
+  const pl = q.get("planilha"), plConta = q.get("conta");
+  if (!pl && req.headers.get("x-cron-secret") !== Deno.env.get("CRON_SECRET")) {
     return new Response("não autorizado", { status: 401 });
   }
   try {
+    if (pl && (!/^\d{4}-\d{2}$/.test(pl) || (plConta !== "cpf" && plConta !== "pj") || q.get("k") !== await chaveLink(pl, plConta))) {
+      return new Response("link inválido", { status: 403 });
+    }
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SECRET_KEY"))!);
     const { data, error } = await sb.from("livro_caixa").select("valor")
       .eq("user_id", Deno.env.get("LC_USER_ID")!).eq("chave", "livro-caixa:v1").maybeSingle();
     if (error) throw error;
     if (!data) return new Response("sem dados", { status: 404 });
-    const curto = new URL(req.url).searchParams.get("curto") === "1"; // ?curto=1 manda só uma linha de teste
-    const soTeste = new URL(req.url).searchParams.get("teste") === "1"; // ?teste=1 mostra os textos sem enviar
+    // download da planilha pelo link da mensagem
+    if (pl) {
+      return new Response(planilhaMes(data.valor.lancamentos || [], pl, plConta as "cpf" | "pj"), { headers: {
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "content-disposition": 'attachment; filename="livro-caixa-' + (plConta === "pj" ? "negocio" : "pessoal") + "-" + pl + '.xlsx"' } });
+    }
+    const curto = q.get("curto") === "1"; // ?curto=1 manda só uma linha de teste
+    const soTeste = q.get("teste") === "1"; // ?teste=1 mostra os textos sem enviar
     const textos = curto ? ["Teste do Livro-caixa: envio funcionando."]
-      : [montarTexto(data.valor, "cpf"), montarTexto(data.valor, "pj")];
+      : await Promise.all((["cpf", "pj"] as const).map(async (c) => {
+          const ym = hojeSP().slice(0, 7);
+          const n = (data.valor.lancamentos || []).filter((l: Lanc) => !l.ignorado && l.data.slice(0, 7) === ym && (c === "pj") === ehNegocio(l)).length;
+          return montarTexto(data.valor, c) + (n ? "\n\n📊 Planilha do mês (" + n + " lançamentos):\n" + await linkPlanilha(ym, c) : "");
+        }));
     if (soTeste) return new Response(textos.join("\n\n----------\n\n"), { headers: { "content-type": "text/plain; charset=utf-8" } });
     // envia em segundo plano: o agendamento (pg_net) desiste de esperar após 5 s, e duas mensagens levam mais que isso
     const enviarTodas = async () => {
