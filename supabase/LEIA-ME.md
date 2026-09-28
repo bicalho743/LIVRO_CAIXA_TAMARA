@@ -2,6 +2,9 @@
 
 Todo dia às 8h (horário de Brasília) o Supabase monta o resumo das metas e envia para o seu WhatsApp.
 É o mesmo texto que aparece em **Pessoal › Metas › Resumo para WhatsApp**.
+Cada mensagem (Pessoal e Negócio) termina com o **link da planilha do mês** no mesmo layout da aba LANÇAMENTOS do Solano
+(DATA | HISTÓRICO | VALOR | BANCO | CATEGORIA | SUBCATEGORIA | FIXO/VARIÁVEL | MÊS). O link aponta para a própria função,
+que gera a planilha na hora; ele tem uma chave derivada do `CRON_SECRET` (trocar a senha invalida os links antigos).
 Tudo é feito pelo painel do Supabase, sem instalar nada.
 
 ## 1. Ativar o CallMeBot (grátis, envia só para o seu número)
