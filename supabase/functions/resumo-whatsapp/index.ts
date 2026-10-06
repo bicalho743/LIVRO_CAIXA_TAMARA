@@ -1,4 +1,6 @@
-// Supabase Edge Function: envia todo dia o resumo das metas do Livro-caixa pelo WhatsApp.
+// Supabase Edge Function: envia todo dia, pelo WhatsApp, só o saldo da conta CPF e da conta CNPJ.
+// (?completo=1 envia o resumo antigo: metas do mês + link da planilha, uma mensagem por conta.)
+// O resumo antigo, abaixo, continua no arquivo para uso com ?completo=1.
 // Cada mensagem (Pessoal e Negócio) traz o link da planilha do mês no layout da aba LANÇAMENTOS.
 // O link aponta para esta própria função (?planilha=AAAA-MM&conta=cpf|pj&k=...), que gera o .xlsx na hora.
 // Chamado pelo agendamento (pg_cron) descrito em supabase/LEIA-ME.md.
@@ -157,6 +159,35 @@ async function enviarWhatsApp(texto: string) {
   return corpo;
 }
 
+// ---- mensagem diária: só o saldo da conta CPF e da conta CNPJ ----
+// saldo = último saldo conhecido (do extrato importado ou digitado no app, em dados.saldosDia)
+//         + lançamentos da conta depois dessa data (mesma conta do painel "Saldos nos bancos" do app)
+function saldoBanco(dados: any, o: "pf" | "pj", hoje: string): { v: number; ate: string } | null {
+  const sd: Record<string, number> = (dados.saldosDia || {})[o] || {};
+  const base = Object.keys(sd).filter((x) => x <= hoje).sort().pop();
+  if (!base) return null;
+  let mov = 0, ate = base;
+  for (const l of (dados.lancamentos || []) as Lanc[]) {
+    if (l.ignorado || l.origem === "cartao" || (l.origem === "pj") !== (o === "pj")) continue;
+    if (l.data > base && l.data <= hoje) { mov += l.valor; if (l.data > ate) ate = l.data; }
+  }
+  return { v: Math.round((+sd[base] + mov) * 100) / 100, ate };
+}
+const reais2 = (v: number) => (v < 0 ? "-" : "") + "R$ " + Math.abs(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function textoSaldos(dados: any): string {
+  const hoje = hojeSP();
+  const ontem = new Date(hoje + "T12:00:00"); ontem.setDate(ontem.getDate() - 1);
+  const limite = ontem.toISOString().slice(0, 10);
+  const dm = (d: string) => d.slice(8, 10) + "/" + d.slice(5, 7);
+  const linha = (o: "pf" | "pj", nome: string) => {
+    const s = saldoBanco(dados, o, hoje);
+    if (!s) return nome + ": sem saldo (digite no app)";
+    // se os lançamentos importados terminam antes de ontem, avisa até que dia o valor vale
+    return nome + ": " + reais2(s.v) + (s.ate < limite ? " (até " + dm(s.ate) + ")" : "");
+  };
+  return "*Saldo · " + dm(hoje) + "*\n" + linha("pf", "Conta CPF") + "\n" + linha("pj", "Conta CNPJ");
+}
+
 Deno.serve(async (req) => {
   const q = new URL(req.url).searchParams;
   const pl = q.get("planilha"), plConta = q.get("conta");
@@ -181,6 +212,7 @@ Deno.serve(async (req) => {
     const curto = q.get("curto") === "1"; // ?curto=1 manda só uma linha de teste
     const soTeste = q.get("teste") === "1"; // ?teste=1 mostra os textos sem enviar
     const textos = curto ? ["Teste do Livro-caixa: envio funcionando."]
+      : q.get("completo") !== "1" ? [textoSaldos(data.valor)]
       : await Promise.all((["cpf", "pj"] as const).map(async (c) => {
           const ym = hojeSP().slice(0, 7);
           const n = (data.valor.lancamentos || []).filter((l: Lanc) => !l.ignorado && l.data.slice(0, 7) === ym && (c === "pj") === ehNegocio(l)).length;
