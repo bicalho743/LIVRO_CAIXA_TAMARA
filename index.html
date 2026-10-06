@@ -561,6 +561,47 @@
     .pv-grid{grid-template-columns:1fr;gap:26px}
     .pv-lado{position:static;order:-1}
   }
+
+  /* ---- Visão geral colorida + saldos nos bancos ---- */
+  #lc{--pos:#15803D;--pos-bg:#ECFDF3;--neg:#C0392B;--neg-bg:#FEF2F2;--alerta:#B45309;--alerta-bg:#FFFBEB;
+      --info:#1D4ED8;--info-bg:#EFF6FF;--fundo:#F4F6FA;--sombra:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08)}
+  /* saldos nos bancos */
+  .bancos{margin-top:14px;padding:14px 24px 16px;border:1px solid var(--linha);background:#fff;border-radius:4px}
+  .bc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0 24px}
+  .bc-l{display:flex;flex-direction:column;gap:2px;padding:6px 0}
+  .bc-n{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cinza)}
+  .bc-l .bc-n::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--b,#9CA3AF)}
+  .bc-l b{font-family:var(--serif);font-size:24px;font-weight:600;font-variant-numeric:lining-nums tabular-nums;white-space:nowrap}
+  .bc-t{padding:6px 14px!important;border-radius:9px;background:#F9FAFB}
+  .bc-t .bc-n{font-weight:600;color:var(--tinta)}
+  .bc-t .bc-n::before{display:none}
+  .bc-l .ver-mais{padding:0;font-size:11.5px;display:inline;text-decoration:underline}
+  @media (max-width:700px){.bc-grid{grid-template-columns:1fr}.bancos{padding:12px 16px 14px}.bc-l b{font-size:21px}}
+
+  /* Visão geral: cartões brancos sobre fundo claro, com a cor de cada função (entrou, gastou, sobrou/faltou) */
+  #lc.tema-dash{background:var(--fundo)}
+  .tema-dash .barra-periodo{background:transparent;border-bottom:none}
+  .tema-dash .dash-geral,.tema-dash .bancos,.tema-dash .dash-atencao,.tema-dash .dash-col{
+    background:#fff;border:1px solid #E5E7EB;border-radius:12px;box-shadow:var(--sombra)}
+  .tema-dash .dash-col{border-top:5px solid var(--dc)}
+  .tema-dash .dash-geral{padding:6px;gap:6px}
+  .tema-dash .dash-geral .g-num,.tema-dash .dash-kpi{padding:14px 16px;border-radius:9px;border-left:4px solid var(--k,#9CA3AF);background:var(--kb,#F9FAFB)}
+  .tema-dash .dash-geral .g-num:nth-child(1),.tema-dash .dash-kpi:nth-child(1){--k:#16A34A;--kb:var(--pos-bg)}
+  .tema-dash .dash-geral .g-num:nth-child(2),.tema-dash .dash-kpi:nth-child(2){--k:#EA580C;--kb:#FFF7ED}
+  .tema-dash .dash-geral .g-num:nth-child(3),.tema-dash .dash-kpi:nth-child(3){--k:#16A34A;--kb:#DCFCE7}
+  .tema-dash .dash-geral .g-num:nth-child(3):has(.v[style*="C0392B"]),.tema-dash .dash-kpi:nth-child(3):has(.v[style*="C0392B"]){--k:#DC2626;--kb:#FEE2E2}
+  .tema-dash .dash-geral .g-num:nth-child(1) .rot::before,.tema-dash .dash-kpi:nth-child(1) .rot::before{content:"▲ ";color:#16A34A}
+  .tema-dash .dash-geral .g-num:nth-child(2) .rot::before,.tema-dash .dash-kpi:nth-child(2) .rot::before{content:"▼ ";color:#EA580C}
+  .tema-dash .dash-geral .g-hist{margin:8px 10px 6px;padding-top:12px}
+  .tema-dash .rot,.tema-dash .tit-secao h3,.tema-dash .bc-n{font-weight:600;color:#6B7280}
+  .tema-dash .bc-t .bc-n{color:var(--tinta)}
+  /* números com algarismos alinhados à altura da linha (a fonte de títulos desenha os números "caídos") */
+  .tema-dash .dash-geral .v,.tema-dash .dash-kpi .v,.tema-dash .barra-fatura .bf-valor,.tema-dash .dash-lin .vl,.tema-dash .dash-atencao .v,
+  .tema-dash table.dash-mes td{font-variant-numeric:lining-nums tabular-nums}
+  .tema-dash .dash-geral .v,.tema-dash .dash-kpi .v{font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+  .tema-dash .barra-fatura{border-radius:12px;box-shadow:var(--sombra)}
+  .tema-dash tbody tr:hover{background:#EEF4FF}
+  @media (max-width:700px){.tema-dash .dash-geral .g-num,.tema-dash .dash-kpi{padding:10px 11px}.tema-dash .dash-geral .v{font-size:22px}}
 </style>
 
 <div id="telaLogin">
@@ -807,7 +848,7 @@
   ].map(r=>({termo:r[0],categoria:r[1],vinculo:r[2],padrao:true}));
 
   /* ================= estado ================= */
-  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{},metas:{cpf:{},pj:{},faturamento:0},whatsapp:{numero:""},previsoes:{cpf:{},pj:{}}};
+  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{},metas:{cpf:{},pj:{},faturamento:0},whatsapp:{numero:""},previsoes:{cpf:{},pj:{}},saldosDia:{}};
   let ui = {mes:null,view:"mes",busca:"",cat:"",tipo:"",vinculo:"",sortCol:"data",sortDir:1,_contaAtual:"pf",conta:"dash"};
 
   /* O que NÃO é gasto nem receita:
@@ -1202,6 +1243,7 @@
     $("#corpo").innerHTML=
       barraFatura()+
       faixa+
+      (dados.lancamentos.length?painelBancos():"")+
       '<div class="dash-topo" style="margin-top:22px">'+
         '<p class="nota-linha" style="margin:0;max-width:62ch">Compras do cartão contam na data da compra. '+
           'Fatura, aplicações e transferências entre suas contas não entram.</p>'+
@@ -1269,6 +1311,7 @@
         dados.metas       = normMetas(d.metas);
         dados.whatsapp    = d.whatsapp||{numero:""};
         dados.previsoes   = normPrev(d.previsoes);
+        dados.saldosDia   = d.saldosDia||{};
         migrar();
         dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
         // migração: remover lançamentos do cartão com data > hoje+6 meses (bug antigo)
@@ -1420,7 +1463,7 @@
 
     const existentes = new Set(dados.lancamentos.map(l=>l.id));
     const porChave = mapaExistentes();
-    let novos=0, repetidos=0, prontos=0, corrigidos=0, saldoAnt=null, mesesTocados=new Set();
+    let novos=0, repetidos=0, prontos=0, corrigidos=0, saldoAnt=null, mesesTocados=new Set(), saldosImp=[];
 
     for(let i=1;i<linhas.length;i++){
       const l=linhas[i];
@@ -1430,7 +1473,7 @@
       const valor=numero(l[iVal]||"0");
       const chato=hist.toUpperCase().replace(/\s+/g,"");
       if(chato==="SALDOANTERIOR"){ saldoAnt={data:iso,valor:valor}; continue; }
-      if(chato==="SALDO"||chato==="SALDOATUAL") continue;
+      if(chato==="SALDO"||chato==="SALDOATUAL"){ saldosImp.push({iso:iso,valor:valor}); continue; }
 
       const doc=(l[iDoc]||"").trim();
       const id=iso+"|"+doc+"|"+valor.toFixed(2)+"|"+hist.slice(0,42);
@@ -1456,7 +1499,9 @@
       const d=new Date(saldoAnt.data+"T12:00:00"); d.setDate(d.getDate()+1);
       const ym=d.toISOString().slice(0,7);
       dados.saldos[ym]=saldoAnt.valor;
+      gravarSaldoDia(ui._contaAtual||"pf",saldoAnt.data,saldoAnt.valor);
     }
+    saldosImp.forEach(s=>gravarSaldoDia(ui._contaAtual||"pf",s.iso,s.valor));
     dados.lancamentos.sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:a.id<b.id?-1:1);
     return {novos:novos,repetidos:repetidos,prontos:prontos,corrigidos:corrigidos,meses:[...mesesTocados]};
   }
@@ -1556,6 +1601,12 @@
       }
       const histUpper = hist.toUpperCase().replace(/\s+/g,"");
       if(histUpper.startsWith("SALDO")){
+        if(/^SALDO(ANTERIOR|ATUAL|FINAL|DODIA)?$/.test(histUpper)){
+          const isoS=dataISO(dataStr);
+          let vsd=numero(String(row[iVal]||"0"));
+          if(formatoPJ){ const infS=String(row[iInf]||"").trim().toUpperCase(); if(infS==="D") vsd=-Math.abs(vsd); else if(infS==="C") vsd=Math.abs(vsd); }
+          if(isoS) gravarSaldoDia(ui._contaAtual||"pf",isoS,vsd);
+        }
         if(histUpper==="SALDOANTERIOR"){
           const vs=numero(String(row[iVal]||"0"));
           const iso2=dataISO(dataStr);
@@ -2020,6 +2071,7 @@
         let n=0;
         d.lancamentos.forEach(l=>{ if(l&&l.id&&!vistos.has(l.id)){dados.lancamentos.push(l);vistos.add(l.id);n++;} });
         Object.assign(dados.saldos,d.saldos||{});
+        if(d.saldosDia) ["pf","pj"].forEach(o=>{ dados.saldosDia[o]=Object.assign({},(d.saldosDia[o]||{}),(dados.saldosDia[o]||{})); });
         if(Array.isArray(d.regras)&&d.regras.length) dados.regras=d.regras;
         if(d.metas) dados.metas=normMetas(d.metas);
         if(d.previsoes){ const pn=normPrev(d.previsoes); ["cpf","pj"].forEach(c=>Object.keys(pn[c]).forEach(ym=>{ if(!dados.previsoes[c][ym]) dados.previsoes[c][ym]=pn[c][ym]; })); }
@@ -2329,9 +2381,65 @@
     };
   }
 
+  /* ================= saldos nos bancos (Visão geral) ================= */
+  // dados.saldosDia = { pf:{ "2026-09-30":1234.56 }, pj:{ … } }: saldo no fim de cada dia conhecido (do extrato ou digitado).
+  // O saldo de hoje = último saldo conhecido + lançamentos da conta depois dessa data.
+  function gravarSaldoDia(origem,iso,valor){
+    if(!iso||valor==null||isNaN(valor)) return;
+    const o=origem==="pj"?"pj":"pf";
+    dados.saldosDia=dados.saldosDia||{};
+    (dados.saldosDia[o]=dados.saldosDia[o]||{})[iso]=pvCent(valor);
+  }
+  // lançamento que mexeu na conta corrente (compras do cartão não mexem; só a fatura, que já vem no extrato)
+  const doBanco = (l,o) => !l.ignorado && l.origem!=="cartao" && (l.origem==="pj")===(o==="pj");
+  function saldoBanco(o){
+    const sd=(dados.saldosDia||{})[o]||{}, hj=hojeISO();
+    const d=Object.keys(sd).filter(x=>x<=hj).sort().pop();
+    if(!d) return null;
+    let mov=0, ate=d;
+    dados.lancamentos.forEach(l=>{ if(doBanco(l,o)&&l.data>d&&l.data<=hj){ mov+=l.valor; if(l.data>ate) ate=l.data; } });
+    return {v:pvCent((+sd[d])+mov), base:d, ate:ate};
+  }
+  function painelBancos(){
+    const cor=v=>v<0?"#C0392B":"var(--tinta)";
+    const dm=iso=>iso.slice(8,10)+"/"+iso.slice(5,7);
+    const linha=(o,nome)=>{
+      const s=saldoBanco(o);
+      const fonte=s?('saldo de '+dm(s.base)+(s.ate>s.base?' + lançamentos até '+dm(s.ate):''))
+                   :'importe o extrato ou digite o saldo';
+      return '<div class="bc-l" style="--b:'+(o==="pj"?"#1E8A5F":"#2E86DE")+'"><span class="bc-n">'+nome+'</span>'+
+        '<b style="color:'+(s?cor(s.v):"var(--cinza)")+'">'+(s?'R$ '+brl(s.v):'—')+'</b>'+
+        '<span class="kpi-sub">'+fonte+' · <button class="ver-mais" data-bcajustar="'+o+'">'+(s?'ajustar':'digitar saldo')+'</button></span></div>';
+    };
+    const a=saldoBanco("pf"), b=saldoBanco("pj");
+    const tot=pvCent((a?a.v:0)+(b?b.v:0));
+    return '<section class="bancos"><div class="tit-secao" style="margin:0 0 6px"><h3>Saldos nos bancos</h3></div><div class="bc-grid">'+
+      linha("pf","Conta CPF")+linha("pj","Conta CNPJ")+
+      '<div class="bc-l bc-t"><span class="bc-n">Total nas contas</span><b style="color:'+((a||b)?cor(tot):"var(--cinza)")+'">'+((a||b)?'R$ '+brl(tot):'—')+'</b>'+
+        '<span class="kpi-sub">'+(((a&&a.v<0)||(b&&b.v<0))?'<span style="color:#9A5B07">uma das contas está negativa (cheque especial)</span>'
+          :(a&&b)?'soma das duas contas':'soma só das contas com saldo')+'</span></div>'+
+    '</div></section>';
+  }
+  function ajustarSaldoBanco(o){
+    const s=saldoBanco(o), nome=o==="pj"?"Conta CNPJ":"Conta CPF";
+    modal(
+      '<h3 class="modal-tit">Saldo da '+nome+'</h3>'+
+      '<p class="modal-corpo">Digite o saldo que aparece hoje no banco. A partir dele o app soma os lançamentos que você importar depois.</p>'+
+      '<form onsubmit="return false"><label>Saldo hoje (R$)<input name="saldo" inputmode="decimal" placeholder="1.234,56" value="'+(s?esc(brl(s.v)):"")+'" required></label>'+
+      '<div class="modal-acoes" style="margin-top:14px"><button type="button" class="bt vazado" data-modal="cancelar">Cancelar</button>'+
+      '<button type="button" class="bt" data-modal="ok">Salvar</button></div></form>'
+    ).then(f=>{
+      if(!f) return;
+      const txt=String(f.saldo||"").trim(); if(!txt) return;
+      gravarSaldoDia(o,hojeISO(),numero(txt.replace("−","-")));
+      salvar(); render(); avisar("Saldo da "+nome+" atualizado.");
+    });
+  }
+
   function render(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
     marcarConta();
+    document.getElementById("lc").classList.toggle("tema-dash",ui.conta==="dash");
     if(ui.conta==="dash"){ renderDashboard(); return; }
     if(ui.conta==="prev"){ renderPrevisao(); return; }
     if(!ui.view) ui.view="mes";
@@ -3426,6 +3534,10 @@
   $("#abas").addEventListener("change",e=>{
     if(e.target.id==="selMes"){ ui.mes=e.target.value; render(); }
   });
+  $("#corpo").addEventListener("click",e=>{
+    const b=e.target.closest("[data-bcajustar]");
+    if(b) ajustarSaldoBanco(b.dataset.bcajustar);
+  });
   // previsão do mês: conta (Pessoal/Negócio), meses e ações
   $("#abas").addEventListener("click",e=>{
     if(ui.conta!=="prev") return;
@@ -3480,7 +3592,7 @@
     ).then(f=>{
       if(!f||f.conf!=="APAGAR") return;
       dados.lancamentos=[];
-      dados.saldos={};
+      dados.saldos={}; dados.saldosDia={};
       dados.regras=REGRAS_PADRAO.slice();
       dados.prolabore=0;
       dados.faturaAberta=null; dados.faturaFechada=null;
@@ -3520,6 +3632,7 @@
         dados.metas       = normMetas(remoto.metas);
         dados.whatsapp    = remoto.whatsapp||{numero:""};
         dados.previsoes   = normPrev(remoto.previsoes);
+        dados.saldosDia   = remoto.saldosDia||{};
         migrar();
         render();
         avisar("Dados carregados da nuvem.");
