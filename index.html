@@ -515,6 +515,52 @@
     td.valor .campo{font-size:15px}
     .paineis{margin-top:22px}
   }
+
+  /* ---- previsão do mês ---- */
+  .prev-meses{display:flex;flex-wrap:wrap;gap:6px}
+  .prev-meses button{border:1px solid var(--linha);background:#fff;padding:7px 14px;border-radius:3px;font-size:13px;color:var(--cinza)}
+  .prev-meses button.on{background:var(--verde);color:#fff;border-color:var(--verde)}
+  .prev-meses button.novo{border-style:dashed;color:var(--verde)}
+  .prev-acoes{display:flex;flex-wrap:wrap;gap:8px;width:100%}
+  .prev-acoes .bt{font-size:12px;padding:6px 12px}
+  .pv-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:34px;margin-top:26px;align-items:start}
+  .pv-lado{position:sticky;top:12px}
+  .pv-grid>div,.pv-grid>aside{min-width:0}
+  .pv-contas{min-width:520px}
+  .pv-tab{width:100%;border-collapse:collapse;table-layout:fixed}
+  .pv-tab th{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--cinza);font-weight:500;
+             text-align:left;padding:0 6px 8px;border-bottom:1px solid var(--verde)}
+  .pv-tab th.n{text-align:right}
+  .pv-tab th.pv-ord{cursor:pointer;user-select:none;white-space:nowrap}
+  .pv-tab th.pv-ord:hover,.pv-tab th.pv-ord.on{color:var(--verde)}
+  .pv-tab th.pv-ord .seta{opacity:.45;font-size:11px}
+  .pv-tab th.pv-ord.on .seta{opacity:1}
+  .pv-tab td{padding:2px 4px;border-bottom:1px solid var(--linha-clara);vertical-align:middle}
+  .pv-tab col.c-data{width:128px} .pv-tab col.c-val{width:118px} .pv-tab col.c-acao{width:62px}
+  .pv-tab td.valor .campo{text-align:right;font-family:var(--serif);font-size:16px}
+  .pv-tab input[type=date].campo{font-size:12.5px;color:var(--cinza);padding:4px 2px}
+  .pv-tab .campo.pos{color:#1E8A5F}
+  .pv-tab td.acao{text-align:right;white-space:nowrap}
+  .pv-tab .apagar{opacity:.35}
+  .pv-tab tr:hover .apagar{opacity:1}
+  .pv-tab tr.riscado td:not(.acao){text-decoration:line-through;text-decoration-thickness:1px}
+  .pv-pagar{border:1px solid var(--linha);background:#fff;color:#1E8A5F;border-radius:50%;width:24px;height:24px;font-size:12px;line-height:1}
+  .pv-pagar:hover{background:#1E8A5F;color:#fff;border-color:#1E8A5F}
+  .pv-resumo{background:var(--marfim);border:1px solid var(--linha-clara);border-radius:4px;padding:14px 18px;margin-bottom:24px}
+  .pv-l{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;font-size:13.5px;margin:0;
+        text-transform:none;letter-spacing:0;color:var(--tinta)}
+  .pv-l b{font-family:var(--serif);font-size:19px;font-weight:500;font-variant-numeric:tabular-nums}
+  .pv-l input{width:140px;text-align:right;font-family:var(--serif);font-size:17px;background:#fff;border:1px solid var(--linha)!important}
+  .pv-tot{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--tinta);margin-top:6px;padding-top:10px;font-size:13.5px}
+  .pv-tot b{font-family:var(--serif);font-size:30px;font-weight:500;font-variant-numeric:tabular-nums}
+  tr.pv-vencida td{background:#FEF2F2!important}
+  tr.pv-vencida td:first-child{box-shadow:inset 4px 0 0 #DC2626}
+  tr.pv-vencida input[data-k="d"]{color:#B42318;font-weight:600}
+  tr.pv-hoje td:first-child{box-shadow:inset 4px 0 0 #D97706}
+  @media (max-width:900px){
+    .pv-grid{grid-template-columns:1fr;gap:26px}
+    .pv-lado{position:static;order:-1}
+  }
 </style>
 
 <div id="telaLogin">
@@ -568,6 +614,7 @@
     <button class="conta-tab ativa" data-conta="dash">Visão geral</button>
     <button class="conta-tab" data-conta="cpf">Pessoal</button>
     <button class="conta-tab" data-conta="pj">Negócio — MEI</button>
+    <button class="conta-tab" data-conta="prev">Previsão do mês</button>
     <span class="conta-sep">Conferir com o extrato:</span>
     <button class="conta-tab banco" data-conta="bcpf">Conta CPF</button>
     <button class="conta-tab banco" data-conta="bpj">Conta CNPJ</button>
@@ -760,7 +807,7 @@
   ].map(r=>({termo:r[0],categoria:r[1],vinculo:r[2],padrao:true}));
 
   /* ================= estado ================= */
-  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{},metas:{cpf:{},pj:{},faturamento:0},whatsapp:{numero:""}};
+  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{},metas:{cpf:{},pj:{},faturamento:0},whatsapp:{numero:""},previsoes:{cpf:{},pj:{}}};
   let ui = {mes:null,view:"mes",busca:"",cat:"",tipo:"",vinculo:"",sortCol:"data",sortDir:1,_contaAtual:"pf",conta:"dash"};
 
   /* O que NÃO é gasto nem receita:
@@ -1221,6 +1268,7 @@
         dados.faturaFechada= d.faturaFechada||null;
         dados.metas       = normMetas(d.metas);
         dados.whatsapp    = d.whatsapp||{numero:""};
+        dados.previsoes   = normPrev(d.previsoes);
         migrar();
         dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
         // migração: remover lançamentos do cartão com data > hoje+6 meses (bug antigo)
@@ -1974,6 +2022,7 @@
         Object.assign(dados.saldos,d.saldos||{});
         if(Array.isArray(d.regras)&&d.regras.length) dados.regras=d.regras;
         if(d.metas) dados.metas=normMetas(d.metas);
+        if(d.previsoes){ const pn=normPrev(d.previsoes); ["cpf","pj"].forEach(c=>Object.keys(pn[c]).forEach(ym=>{ if(!dados.previsoes[c][ym]) dados.previsoes[c][ym]=pn[c][ym]; })); }
         dados.lancamentos.sort((a,b)=>a.data<b.data?-1:1);
         salvar(); render();
         avisar(n?n+" lançamento"+(n===1?"":"s")+" recuperado"+(n===1?"":"s")+".":"O backup não trouxe nada novo.");
@@ -2023,10 +2072,268 @@
   }
 
   /* ================= desenho da tela ================= */
+  /* ================= previsão do mês ================= */
+  // Contas a pagar e a receber previstas, mês a mês. Pessoal (CPF) e Negócio (MEI) ficam separados:
+  //   dados.previsoes = { cpf:{ "2026-10":{saldo,saldoManual,itens:[],receitas:[],notas:[]} }, pj:{ … } }
+  const pvCent = v => Math.round(v*100)/100;
+  const pvBrlS = v => (v>0?"+":"")+brl(v);
+  const pvConta = () => ui.prevConta==="pj"?"pj":"cpf";
+  const pvNome = c => c==="pj"?"Negócio — MEI":"Pessoal";
+  function pvMapa(){
+    if(!dados.previsoes) dados.previsoes={cpf:{},pj:{}};
+    const c=pvConta(); return dados.previsoes[c]||(dados.previsoes[c]={});
+  }
+  const pvMeses = () => Object.keys(pvMapa()).sort();
+  const pvProxMes = ym => { const [a,m]=ym.split("-").map(Number); return m===12?(a+1)+"-01":a+"-"+String(m+1).padStart(2,"0"); };
+  const pvDia = iso => iso.slice(8,10)+"/"+iso.slice(5,7);
+
+  // dados salvos antes da Previsão não têm o campo; garante a forma esperada
+  function normPrev(p){
+    const r={cpf:{},pj:{}};
+    ["cpf","pj"].forEach(c=>{
+      const o=(p&&p[c])||{};
+      Object.keys(o).forEach(ym=>{
+        const m=o[ym]||{};
+        r[c][ym]={saldo:+m.saldo||0, saldoManual:!!m.saldoManual,
+          itens:Array.isArray(m.itens)?m.itens:[], receitas:Array.isArray(m.receitas)?m.receitas:[], notas:Array.isArray(m.notas)?m.notas:[]};
+      });
+    });
+    return r;
+  }
+  // linhas em ordem de data (sem data vão para o fim)
+  function pvOrdenar(p){
+    if(!p) return;
+    p.itens.sort((a,b)=>(a.data||"9999")<(b.data||"9999")?-1:(a.data||"9999")>(b.data||"9999")?1:0);
+  }
+  // mês futuro: o saldo de partida é a sobra/falta do mês anterior (se ele tem previsão)
+  function pvAntYm(ym){
+    const [a,m]=ym.split("-").map(Number), k=m===1?(a-1)+"-12":a+"-"+String(m-1).padStart(2,"0");
+    return ym>mesAtual() && pvMapa()[k] ? k : null;
+  }
+  function pvSaldo(p,ym){
+    if(p.saldoManual) return +p.saldo||0;
+    const ant=pvAntYm(ym);
+    if(ant) return pvTotais(pvMapa()[ant],ant).resultado;
+    return +p.saldo||0;
+  }
+  function pvTotais(p,ym){
+    const soma=(a,f)=>(a||[]).reduce((s,x)=>s+(+f(x)||0),0);
+    const aPagar=soma(p.itens,x=>x.aPagar), pago=soma(p.itens,x=>x.pago);
+    const receber=soma((p.receitas||[]).filter(x=>!x.recebido),x=>x.v);
+    const outras=soma((p.notas||[]).filter(x=>!x.recebido),x=>x.v);
+    const saldo=pvSaldo(p,ym);
+    return {aPagar:aPagar, pago:pago, receber:receber, outras:outras, saldo:saldo, resultado:pvCent(saldo+receber+outras+aPagar)};
+  }
+
+  // Marca como paga a conta em aberto que já aparece nos lançamentos (mesmo valor, até 6 dias de diferença da data prevista)
+  function pvConferir(){
+    const mapa=pvMapa(), conta=pvConta(), hoje=hojeISO(), usados=new Set();
+    Object.values(mapa).forEach(p=>p.itens.forEach(x=>{ if(x.lanc) usados.add(x.lanc); }));
+    const doConta=dados.lancamentos.filter(l=>!l.ignorado&&l.valor<0&&ehMov(l)&&l.data<=hoje&&(conta==="pj"?ehNegocio(l):!ehNegocio(l)));
+    let n=0;
+    Object.keys(mapa).sort().forEach(ym=>{
+      mapa[ym].itens.forEach(x=>{
+        if(x.pago!=null||x.aPagar==null||x.aPagar>=0) return;
+        const alvo=Math.abs(x.aPagar), base=x.data||(ym+"-15");
+        let melhor=null, dist=1e9;
+        doConta.forEach(l=>{
+          if(l.id&&usados.has(l.id)) return;
+          if(Math.abs(Math.abs(l.valor)-alvo)>=0.005) return;
+          const d=Math.abs(new Date(l.data+"T12:00:00")-new Date(base+"T12:00:00"))/864e5;
+          if(d<=6&&d<dist){ melhor=l; dist=d; }
+        });
+        if(!melhor) return;
+        if(melhor.id){ usados.add(melhor.id); x.lanc=melhor.id; }
+        x.pago=alvo; x.aPagar=null; n++;
+      });
+    });
+    return n;
+  }
+
+  // cria um mês copiando as linhas do anterior: o que foi pago vira previsto, nada marcado como pago/recebido
+  function pvNovoMes(deYm,paraYm){
+    const mapa=pvMapa(), ms=pvMeses(), ult=deYm||ms[ms.length-1], base=ult?mapa[ult]:null;
+    const ym=paraYm||(ult?pvProxMes(ult):mesAtual());
+    const [a,m]=ym.split("-").map(Number), dias=new Date(a,m,0).getDate();
+    const mover=d=>/^\d{4}-\d{2}-\d{2}$/.test(d||"")?ym+"-"+String(Math.min(+d.slice(8),dias)).padStart(2,"0"):"";
+    const novo={saldo:0, saldoManual:false,
+      itens:((base&&base.itens)||[]).map(x=>({data:mover(x.data), d:x.d, aPagar:x.aPagar!=null?x.aPagar:(x.pago?-x.pago:null), pago:null})),
+      receitas:((base&&base.receitas)||[]).map(r=>({d:r.d, v:r.v})), notas:[]};
+    pvOrdenar(novo);
+    mapa[ym]=novo; ui.prevMes=ym; salvar(); render();
+    avisar(cap(rotuloMes(ym))+" criado"+(ult?" a partir de "+rotuloMes(ult):"")+".");
+  }
+  function pvPassar(de){
+    const ym=pvProxMes(de);
+    if(pvMapa()[ym])
+      confirmar(cap(rotuloMes(ym))+" já existe",
+        "Substituir a previsão de "+esc(rotuloMes(ym))+" por uma cópia de "+esc(rotuloMes(de))+"?","Substituir")
+        .then(ok=>{ if(ok) pvNovoMes(de,ym); });
+    else pvNovoMes(de,ym);
+  }
+  // após editar um campo, redesenha e devolve o foco ao mesmo campo (Tab continua funcionando)
+  function pvManterFoco(fn){
+    setTimeout(()=>{
+      const a=document.activeElement, k=a&&a.dataset?a.dataset.foco:null;
+      fn();
+      if(k){ const b=document.querySelector('[data-foco="'+k+'"]'); if(b){ b.focus(); try{ b.select(); }catch(_){} } }
+    },0);
+  }
+
+  function renderPrevisao(){
+    const corpo=$("#corpo"), conta=pvConta(), mapa=pvMapa(), ms=pvMeses();
+    if(!ms.includes(ui.prevMes))
+      ui.prevMes = ms.includes(mesAtual()) ? mesAtual() : (ms.filter(m=>m>=mesAtual())[0] || ms[ms.length-1] || null);
+    $("#abas").innerHTML=
+      '<div class="vistas" role="tablist">'+["cpf","pj"].map(c=>
+        '<button role="tab" data-pconta="'+c+'" class="'+(c===conta?"on":"")+'" aria-selected="'+(c===conta)+'">'+pvNome(c)+'</button>').join("")+'</div>'+
+      '<div class="prev-meses" role="tablist">'+
+        ms.map(m=>'<button role="tab" data-pmes="'+m+'" class="'+(m===ui.prevMes?"on":"")+'" aria-selected="'+(m===ui.prevMes)+'">'+cap(rotuloMes(m))+'</button>').join("")+
+        '<button data-pnovo="1" class="novo">+ Novo mês</button></div>'+
+      (ui.prevMes?'<div class="prev-acoes">'+
+        '<button class="bt vazado" data-pconferir="1" title="Marca como paga a conta que já aparece nos lançamentos">Conferir com o extrato</button>'+
+        '<button class="bt vazado" data-ppassar="1">Passar para '+esc(rotuloMes(pvProxMes(ui.prevMes)))+' →</button>'+
+        '<button class="bt vazado" data-papagar="1">Apagar '+esc(rotuloMes(ui.prevMes))+'</button></div>':'');
+    if(!ui.prevMes){
+      corpo.innerHTML='<div class="vazio"><p class="num">Nenhuma previsão em '+esc(pvNome(conta))+' ainda</p>'+
+        '<p>Clique em <b>+ Novo mês</b> e lance o que você espera pagar e receber. '+
+        'Nos meses seguintes, <b>Passar para o próximo mês</b> copia tudo e você só ajusta.</p></div>';
+      return;
+    }
+    const ym=ui.prevMes, p=mapa[ym];
+    const val=(v,sinal)=>v==null?"":(sinal?pvBrlS(v):brl(v));
+    const hj=hojeISO(), d3=new Date(hj+"T12:00:00"); d3.setDate(d3.getDate()+3);
+    const lim3=d3.toISOString().slice(0,10);
+    const linha=(lista,x,i)=>{
+      const at=k=>' data-pv="'+lista+'" data-i="'+i+'" data-k="'+k+'" data-foco="'+lista+':'+i+':'+k+'"';
+      // conta em aberto: vencida (vermelho) ou vencendo em até 3 dias (âmbar)
+      const aberto=x.aPagar!=null&&x.aPagar<0&&x.data, venc=aberto&&x.data<hj, logo=aberto&&!venc&&x.data<=lim3;
+      return '<tr'+(venc?' class="pv-vencida" title="Vencida e ainda em aberto"':logo?' class="pv-hoje" title="Vence em até 3 dias"':'')+'>'+
+        '<td><input type="date" class="campo"'+at("data")+' value="'+esc(x.data||"")+'" aria-label="Data"></td>'+
+        '<td><input class="campo"'+at("d")+' value="'+esc(x.d||"")+'" placeholder="Detalhes" aria-label="Detalhes"></td>'+
+        '<td class="valor"><input class="campo'+(x.aPagar>0?' pos':'')+'"'+at("aPagar")+' value="'+val(x.aPagar,true)+'" placeholder="—" inputmode="decimal" aria-label="A pagar"></td>'+
+        '<td class="valor"><input class="campo"'+at("pago")+' value="'+val(x.pago)+'" placeholder="—" inputmode="decimal" aria-label="Pago"></td>'+
+        '<td class="acao">'+(x.aPagar!=null&&x.aPagar<0?'<button class="pv-pagar" data-ppagar="'+lista+':'+i+'" title="Marcar como pago">✓</button>':'')+
+          '<button class="apagar" data-pdel="'+lista+':'+i+'" title="Apagar linha" aria-label="Apagar linha">×</button></td></tr>';
+    };
+    // ordenação só na tela (clique no cabeçalho); os índices continuam os da lista gravada
+    const ordPrev=lista=>(ui.pvOrd&&ui.pvOrd[lista])||{k:"data",dir:1};
+    const idxOrdenados=lista=>{
+      const o=ordPrev(lista), arr=p[lista].map((x,i)=>i);
+      const chave=x=>o.k==="d" ? String(x.d||"").toLowerCase()
+        : o.k==="data" ? (x.data||"")
+        : o.k==="aPagar" ? (x.aPagar==null?null:Math.abs(x.aPagar))
+        : (x.pago==null?null:+x.pago);
+      return arr.sort((a,b)=>{
+        const A=chave(p[lista][a]), B=chave(p[lista][b]);
+        const va=(A===""||A==null), vb=(B===""||B==null);
+        if(va||vb) return va&&vb ? a-b : va?1:-1;     // vazios sempre no fim
+        const c = typeof A==="string" ? A.localeCompare(B,"pt-BR") : A-B;
+        return (c||((p[lista][a].data||"").localeCompare(p[lista][b].data||"")))*o.dir || a-b;
+      });
+    };
+    const tabelaContas=
+      '<div class="tit-secao" id="pv-itens" style="margin:0 0 6px"><h3>Contas a pagar</h3></div>'+
+      '<div class="rolagem"><table class="pv-tab pv-contas"><colgroup><col class="c-data"><col><col class="c-val"><col class="c-val"><col class="c-acao"></colgroup>'+
+      '<thead><tr>'+[["data","Data",""],["d","Detalhes",""],["aPagar","A pagar","n"],["pago","Pago","n"]].map(([k,r,c])=>{
+        const o=ordPrev("itens"), on=o.k===k;
+        return '<th class="pv-ord'+(c?" "+c:"")+(on?" on":"")+'" data-pvsort="itens:'+k+'" title="Ordenar por '+r.toLowerCase()+'">'+r+
+          '<span class="seta">'+(on?(o.dir>0?" ↑":" ↓"):" ↕")+'</span></th>'; }).join("")+'<th></th></tr></thead><tbody>'+
+      idxOrdenados("itens").map(i=>linha("itens",p.itens[i],i)).join("")+'</tbody></table></div>'+
+      '<button class="ver-mais" data-padd="itens">+ Adicionar conta</button>';
+    const listaSimples=(lista,titulo,rot)=>
+      '<div class="tit-secao" id="pv-'+lista+'" style="margin:26px 0 6px"><h3>'+titulo+'</h3></div>'+
+      '<table class="pv-tab"><colgroup><col><col class="c-val"><col style="width:64px"></colgroup><tbody>'+
+      p[lista].map((x,i)=>{ const at=k=>' data-pv="'+lista+'" data-i="'+i+'" data-k="'+k+'" data-foco="'+lista+':'+i+':'+k+'"';
+        return '<tr'+(x.recebido?' class="riscado" title="Recebido — fora da soma"':'')+'><td><input class="campo"'+at("d")+' value="'+esc(x.d||"")+'" placeholder="'+rot+'" aria-label="'+rot+'"></td>'+
+          '<td class="valor"><input class="campo'+(lista==="receitas"?' pos':'')+'"'+at("v")+' value="'+val(x.v)+'" placeholder="—" inputmode="decimal" aria-label="Valor"></td>'+
+          '<td class="acao"><button class="pv-pagar" data-precebe="'+lista+':'+i+'" title="'+(x.recebido?"Ainda não recebido (volta para a soma)":"Marcar como recebido (sai da soma)")+'">'+(x.recebido?"↺":"✓")+'</button>'+
+          '<button class="apagar" data-pdel="'+lista+':'+i+'" aria-label="Apagar">×</button></td></tr>'; }).join("")+
+      '</tbody></table><button class="ver-mais" data-padd="'+lista+'">+ Adicionar</button>';
+
+    const t=pvTotais(p,ym), ant=pvAntYm(ym);
+    const origemSaldo = p.saldoManual
+      ? 'digitado'+(ant?' · <button class="ver-mais" data-psaldoauto="1" style="padding:0">usar o saldo de '+esc(rotuloMes(ant))+'</button>':'')
+      : ant
+        ? (()=>{ const r=pvTotais(mapa[ant],ant).resultado;
+            return (r<0?'falta':'sobra')+' de '+esc(rotuloMes(ant))+' · <button class="ver-mais" data-pverant="'+ant+'" style="padding:0">ver</button>'; })()
+        : 'digite o saldo atual da conta';
+    corpo.innerHTML=
+      '<p class="nota-linha"><b>'+esc(pvNome(conta))+'.</b> Tudo aqui é editável e fica salvo. <b>A pagar</b>: digite o valor normal (vira saída); para entrada use +. '+
+        'O ✓ move o valor para <b>Pago</b>. <b>Conferir com o extrato</b> marca como paga a conta que já está nos lançamentos.</p>'+
+      '<div class="pv-grid"><div>'+tabelaContas+'</div><aside class="pv-lado">'+
+        '<div class="pv-resumo" id="pv-resumo">'+
+          '<label class="pv-l">Saldo em conta<input class="campo" data-pv="saldo" data-foco="saldo" value="'+brl(t.saldo)+'" placeholder="0,00" inputmode="decimal"></label>'+
+          '<p class="sub" id="pvSaldoF" style="margin:-4px 0 6px;text-align:right">'+origemSaldo+'</p>'+
+          '<div class="pv-l"><span>A receber</span><b id="pvReceber" style="color:#1E8A5F">'+pvBrlS(t.receber)+'</b></div>'+
+          '<div class="pv-l"><span>Anotações</span><b id="pvOutras" style="color:'+(t.outras<0?"#C0392B":"#1E8A5F")+'">'+pvBrlS(t.outras)+'</b></div>'+
+          '<div class="pv-l"><span>A pagar</span><b id="pvAPagar">'+brl(t.aPagar)+'</b></div>'+
+          '<div class="pv-tot"><span id="pvRot">'+(t.resultado<0?"Falta no mês":"Sobra no mês")+'</span>'+
+            '<b id="pvRes" style="color:'+(t.resultado<0?"#C0392B":"#1E8A5F")+'">R$ '+brl(t.resultado)+'</b></div>'+
+          '<p class="sub" style="margin-top:8px">Saldo em conta + a receber + anotações − a pagar. O ✓ numa receita marca como recebida e tira da soma (o dinheiro já está no saldo).</p>'+
+          '<p class="sub" id="pvPago" style="margin-top:4px">Já pago no mês: R$ '+brl(t.pago)+'</p>'+
+        '</div>'+
+        listaSimples("receitas","Receitas esperadas","Descrição")+
+        listaSimples("notas","Anotações","Descrição")+
+      '</aside></div>';
+
+    const atualizar=()=>{
+      const t=pvTotais(p,ym);
+      $("#pvAPagar").textContent=brl(t.aPagar); $("#pvReceber").textContent=pvBrlS(t.receber);
+      $("#pvOutras").textContent=pvBrlS(t.outras); $("#pvOutras").style.color=t.outras<0?"#C0392B":"#1E8A5F";
+      $("#pvRot").textContent=t.resultado<0?"Falta no mês":"Sobra no mês";
+      $("#pvRes").textContent="R$ "+brl(t.resultado); $("#pvRes").style.color=t.resultado<0?"#C0392B":"#1E8A5F";
+      $("#pvPago").textContent="Já pago no mês: R$ "+brl(t.pago);
+    };
+    corpo.onchange=e=>{
+      const el=e.target.closest("[data-pv]"); if(!el) return;
+      const lista=el.dataset.pv, k=el.dataset.k, txt=String(el.value||"").trim();
+      const n=txt===""?null:numero(txt.replace("−","-"));
+      if(lista==="saldo"){
+        if(n==null){ p.saldoManual=false; p.saldo=0; } else { p.saldo=n; p.saldoManual=true; }
+        salvar(); pvManterFoco(renderPrevisao); return;
+      }
+      const x=p[lista][+el.dataset.i]; if(!x) return;
+      if(k==="d"||k==="data") x[k]=el.value;
+      else if(k==="aPagar"){ x.aPagar = (n==null||n===0)?null : (/^\+/.test(txt)?Math.abs(n):-Math.abs(n)); }
+      else if(k==="pago"){ x.pago = (n==null||n===0)?null:Math.abs(n); el.value=val(x.pago); }
+      else if(k==="v"){ x.v=n; el.value=val(x.v); }
+      salvar(); atualizar();
+      if(k==="aPagar") pvManterFoco(renderPrevisao);
+    };
+    corpo.onclick=e=>{
+      const va=e.target.closest("[data-pverant]");
+      if(va){ ui.prevMes=va.dataset.pverant; render(); window.scrollTo(0,0); return; }
+      const so=e.target.closest("th[data-pvsort]");
+      if(so){ const [l,k]=so.dataset.pvsort.split(":"), o=(ui.pvOrd=ui.pvOrd||{}), at=o[l]||{k:"data",dir:1};
+        o[l]= at.k===k ? {k:k,dir:-at.dir} : {k:k,dir:1}; renderPrevisao(); return; }
+      if(e.target.closest("[data-psaldoauto]")){ p.saldoManual=false; p.saldo=0; salvar(); renderPrevisao(); return; }
+      const rc=e.target.closest("[data-precebe]");
+      if(rc){ const [l,i]=rc.dataset.precebe.split(":"), x=p[l][+i]; x.recebido=!x.recebido; salvar(); renderPrevisao(); return; }
+      const ad=e.target.closest("[data-padd]");
+      if(ad){
+        const l=ad.dataset.padd;
+        p[l].push(l==="itens"?{data:(ym===mesAtual()?hojeISO():ym+"-01"),d:"",aPagar:null,pago:null}:{d:"",v:null});
+        salvar(); renderPrevisao();
+        const f=document.querySelector('[data-foco="'+l+':'+(p[l].length-1)+':d"]'); if(f) f.focus();
+        return;
+      }
+      const del=e.target.closest("[data-pdel]");
+      if(del){ const [l,i]=del.dataset.pdel.split(":"); p[l].splice(+i,1); salvar(); renderPrevisao(); return; }
+      const pg=e.target.closest("[data-ppagar]");
+      if(pg){
+        const [l,i]=pg.dataset.ppagar.split(":"), x=p[l][+i];
+        x.pago=pvCent((x.pago||0)+Math.abs(x.aPagar)); x.aPagar=null;
+        salvar(); renderPrevisao(); avisar((x.d||"Conta")+" marcada como paga."); return;
+      }
+    };
+  }
+
   function render(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
     marcarConta();
     if(ui.conta==="dash"){ renderDashboard(); return; }
+    if(ui.conta==="prev"){ renderPrevisao(); return; }
     if(!ui.view) ui.view="mes";
 
     const meses=mesesComDados();
@@ -3119,6 +3426,28 @@
   $("#abas").addEventListener("change",e=>{
     if(e.target.id==="selMes"){ ui.mes=e.target.value; render(); }
   });
+  // previsão do mês: conta (Pessoal/Negócio), meses e ações
+  $("#abas").addEventListener("click",e=>{
+    if(ui.conta!=="prev") return;
+    const c=e.target.closest("[data-pconta]");
+    if(c){ ui.prevConta=c.dataset.pconta; ui.prevMes=null; render(); return; }
+    const m=e.target.closest("[data-pmes]");
+    if(m){ ui.prevMes=m.dataset.pmes; render(); return; }
+    if(e.target.closest("[data-pnovo]")){ pvNovoMes(); return; }
+    if(e.target.closest("[data-ppassar]")){ pvPassar(ui.prevMes); return; }
+    if(e.target.closest("[data-pconferir]")){
+      const n=pvConferir();
+      if(n){ salvar(); render(); avisar(n+(n===1?" conta marcada como paga":" contas marcadas como pagas")+" pelo extrato."); }
+      else avisar("Nenhuma conta em aberto bate com os lançamentos já importados.");
+      return;
+    }
+    if(e.target.closest("[data-papagar]")){
+      const ym=ui.prevMes;
+      confirmar("Apagar "+rotuloMes(ym)+"?","Apaga a previsão de "+esc(rotuloMes(ym))+" ("+esc(pvNome(pvConta()))+"). Os lançamentos do extrato não são afetados.","Apagar")
+        .then(ok=>{ if(!ok) return; delete pvMapa()[ym]; ui.prevMes=null; salvar(); render(); avisar("Previsão apagada."); });
+      return;
+    }
+  });
 
   // menus do cabeçalho
   function fecharMenus(){ document.querySelectorAll(".menu").forEach(m=>m.hidden=true);
@@ -3190,6 +3519,7 @@
         dados.faturaFechada= remoto.faturaFechada||null;
         dados.metas       = normMetas(remoto.metas);
         dados.whatsapp    = remoto.whatsapp||{numero:""};
+        dados.previsoes   = normPrev(remoto.previsoes);
         migrar();
         render();
         avisar("Dados carregados da nuvem.");
