@@ -602,6 +602,41 @@
   .tema-dash .barra-fatura{border-radius:12px;box-shadow:var(--sombra)}
   .tema-dash tbody tr:hover{background:#EEF4FF}
   @media (max-width:700px){.tema-dash .dash-geral .g-num,.tema-dash .dash-kpi{padding:10px 11px}.tema-dash .dash-geral .v{font-size:22px}}
+
+  /* ---- fluxo do CNPJ ---- */
+  .conta-tab[data-conta=fluxo].ativa{color:#0E7490;border-bottom-color:#0E7490}
+  .fx-nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .fx-nav button{border:1px solid var(--linha);background:#fff;padding:6px 12px;border-radius:3px;font-size:13px;color:var(--tinta)}
+  .fx-nav button:hover{border-color:var(--verde);color:var(--verde)}
+  .fx-nav button.novo{border-style:dashed;color:var(--verde)}
+  .fx-caixa{overflow:auto;max-height:calc(100vh - 170px);min-height:320px;border:1px solid var(--linha);border-radius:6px;background:#fff;
+            overscroll-behavior:contain;scrollbar-width:auto;scrollbar-color:#8E9A93 #EEEBE3}
+  .fx-caixa thead th{position:sticky;top:0;z-index:2}
+  .fx-caixa thead th:first-child{z-index:3}
+  .fx-caixa::-webkit-scrollbar{height:14px;width:14px}
+  .fx-caixa::-webkit-scrollbar-track{background:#EEEBE3}
+  .fx-caixa::-webkit-scrollbar-thumb{background:#8E9A93;border-radius:8px;border:3px solid #EEEBE3;min-width:60px}
+  .fx-tab{border-collapse:separate;border-spacing:0;width:100%}
+  .fx-tab th,.fx-tab td{padding:1px 2px;border-bottom:1px solid var(--linha-clara);font-size:13px;white-space:nowrap}
+  .fx-tab thead th{background:#fff;text-align:right;padding:9px 8px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+                   color:var(--cinza);font-weight:500;border-bottom:1px solid var(--verde)}
+  .fx-tab td:first-child,.fx-tab th:first-child{position:sticky;left:0;background:#fff;z-index:1;min-width:320px;text-align:left}
+  .fx-tab thead th.fx-atual{color:#0E7490}
+  .fx-tab td.fx-atual{background:#F0FAFC}
+  .fx-tab .fx-rot{display:flex;align-items:center}
+  .fx-tab .fx-rot .campo{min-width:285px}
+  .fx-tab .fx-rot .apagar{opacity:0}.fx-tab tr:hover .fx-rot .apagar{opacity:1}
+  .fx-tab td.valor .campo{width:92px;text-align:right;font-family:var(--serif);font-size:14.5px;font-variant-numeric:lining-nums tabular-nums}
+  .fx-tab tr.fx-g td{font-weight:600;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;padding:9px 10px}
+  .fx-tab tr.fx-g.rec td{background:#ECFDF3;color:#15803D}
+  .fx-tab tr.fx-g.desp td{background:#FFF7ED;color:#C2410C}
+  .fx-tab tr.fx-sub td{font-weight:600;text-align:right;font-family:var(--serif);font-size:14.5px;padding:7px 8px;font-variant-numeric:lining-nums tabular-nums}
+  .fx-tab tr.fx-sub td:first-child{font-family:var(--sans);font-size:12.5px;color:var(--cinza);text-align:left}
+  .fx-tab tr.fx-t td{font-weight:600;border-top:1px solid var(--verde);text-align:right;font-family:var(--serif);font-size:15.5px;padding:8px 8px;font-variant-numeric:lining-nums tabular-nums}
+  .fx-tab tr.fx-t td:first-child{font-family:var(--sans);font-size:13px;text-align:left}
+  .fx-tab tr.fx-r td{text-align:right;font-family:var(--serif);font-size:14px;padding:6px 8px;color:var(--cinza);font-variant-numeric:lining-nums tabular-nums}
+  .fx-tab tr.fx-r td:first-child{font-family:var(--sans);font-size:12.5px;text-align:left}
+  .fx-tab td.fx-tt{font-weight:600;font-family:var(--serif);font-size:14.5px;text-align:right;padding-right:10px}
 </style>
 
 <div id="telaLogin">
@@ -656,6 +691,7 @@
     <button class="conta-tab" data-conta="cpf">Pessoal</button>
     <button class="conta-tab" data-conta="pj">Negócio — MEI</button>
     <button class="conta-tab" data-conta="prev">Previsão do mês</button>
+    <button class="conta-tab" data-conta="fluxo">Fluxo CNPJ</button>
     <span class="conta-sep">Conferir com o extrato:</span>
     <button class="conta-tab banco" data-conta="bcpf">Conta CPF</button>
     <button class="conta-tab banco" data-conta="bpj">Conta CNPJ</button>
@@ -848,7 +884,7 @@
   ].map(r=>({termo:r[0],categoria:r[1],vinculo:r[2],padrao:true}));
 
   /* ================= estado ================= */
-  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{},metas:{cpf:{},pj:{},faturamento:0},whatsapp:{numero:""},previsoes:{cpf:{},pj:{}},saldosDia:{}};
+  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{},metas:{cpf:{},pj:{},faturamento:0},whatsapp:{numero:""},previsoes:{cpf:{},pj:{}},saldosDia:{},fluxoPJ:null};
   let ui = {mes:null,view:"mes",busca:"",cat:"",tipo:"",vinculo:"",sortCol:"data",sortDir:1,_contaAtual:"pf",conta:"dash"};
 
   /* O que NÃO é gasto nem receita:
@@ -1312,6 +1348,7 @@
         dados.whatsapp    = d.whatsapp||{numero:""};
         dados.previsoes   = normPrev(d.previsoes);
         dados.saldosDia   = d.saldosDia||{};
+        dados.fluxoPJ     = normFluxoPJ(d.fluxoPJ);
         migrar();
         dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
         // migração: remover lançamentos do cartão com data > hoje+6 meses (bug antigo)
@@ -2071,6 +2108,7 @@
         let n=0;
         d.lancamentos.forEach(l=>{ if(l&&l.id&&!vistos.has(l.id)){dados.lancamentos.push(l);vistos.add(l.id);n++;} });
         Object.assign(dados.saldos,d.saldos||{});
+        if(d.fluxoPJ&&!dados.fluxoPJ) dados.fluxoPJ=normFluxoPJ(d.fluxoPJ);
         if(d.saldosDia) ["pf","pj"].forEach(o=>{ dados.saldosDia[o]=Object.assign({},(d.saldosDia[o]||{}),(dados.saldosDia[o]||{})); });
         if(Array.isArray(d.regras)&&d.regras.length) dados.regras=d.regras;
         if(d.metas) dados.metas=normMetas(d.metas);
@@ -2436,12 +2474,153 @@
     });
   }
 
+  /* ================= fluxo do CNPJ (previsão mensal de receitas e despesas) ================= */
+  // dados.fluxoPJ = { meses:["2026-10",…], linhas:[ {tipo:"g",rot,lado}, {tipo:"i",rot,lado:"rec"|"desp",v:{"2026-10":27000}} ] }
+  // Valores sempre positivos: o lado da linha (receita ou despesa) é que decide o sinal nas somas.
+  function fxMesesDe(ini,n){ const r=[]; let ym=ini; for(let i=0;i<n;i++){ r.push(ym); ym=pvProxMes(ym); } return r; }
+  function fluxoPJPadrao(){
+    const meses=fxMesesDe(mesAtual(),12);
+    const g=(rot,lado)=>({tipo:"g",rot:rot,lado:lado});
+    const i=(rot,lado,v)=>{ const o={}; if(v) meses.forEach(m=>{ o[m]=v; }); return {tipo:"i",rot:rot,lado:lado,v:o}; };
+    return {meses:meses, linhas:[
+      g("Receitas","rec"),
+      i("Serviços de organização (3 × R$ 9.000)","rec",27000), i("Produtos","rec",500), i("Comissão recebida da Casa Original","rec",300),
+      g("Custos diretos","desp"),
+      i("Fornecedores e assistentes","desp",12000), i("Custo dos produtos","desp",250),
+      g("Sala","desp"),
+      i("Contraprestação","desp",2500), i("Condomínio","desp",600), i("Comissão paga (2 projetos indicados)","desp",1800), i("Campanhas","desp",0),
+      g("Impostos","desp"),
+      i("Simples Nacional (Anexo III)","desp",2334), i("INSS sobre pró-labore","desp",660), i("IRRF","desp",393),
+      g("Operacionais","desp"),
+      i("Contabilidade","desp",600), i("Social media","desp",700),
+      g("Sua retirada","desp"),
+      i("Pró-labore","desp",6000)
+    ]};
+  }
+  function normFluxoPJ(f){
+    if(!f||!Array.isArray(f.meses)||!Array.isArray(f.linhas)) return null;
+    return {meses:f.meses.slice(), linhas:f.linhas.map(l=>({tipo:l.tipo==="g"?"g":"i", rot:String(l.rot||""), lado:l.lado==="rec"?"rec":"desp", v:(l.v&&typeof l.v==="object")?l.v:{}}))};
+  }
+
+  function renderFluxoPJ(){
+    const corpo=$("#corpo");
+    const cxAnt=document.querySelector("#corpo .fx-caixa");
+    if(cxAnt) ui.fxScroll={l:cxAnt.scrollLeft, t:cxAnt.scrollTop};
+    if(!dados.fluxoPJ){ dados.fluxoPJ=fluxoPJPadrao(); salvar(); }
+    const fx=dados.fluxoPJ, ms=fx.meses, hoje=mesAtual();
+    $("#abas").innerHTML='<div class="periodo"><span class="sub" style="margin:0"><b>Fluxo do CNPJ.</b> Previsão mensal de receitas e despesas do Negócio — MEI. '+
+      'Clique num valor para mudar.</span></div>'+
+      '<div class="fx-nav"><button data-fxnav="-1" title="Meses anteriores">◀</button><button data-fxnav="0">Mês atual</button>'+
+      '<button data-fxnav="1" title="Próximos meses">▶</button><button class="novo" data-fxmes="1" title="Acrescenta o mês seguinte, copiando o último">+ mês</button></div>';
+    const soma=(o,m)=>+o[m]||0;
+    const tot={rec:{},desp:{}};
+    let h='', grupo=null;
+    const fecha=()=>{
+      if(!grupo) return;
+      h+='<tr class="fx-sub"><td>▸ Subtotal '+esc(grupo.rot.toLowerCase())+
+        ' <button class="ver-mais" data-fxadd="'+grupo.ult+'" style="padding:0 0 0 8px">+ linha</button></td>'+
+        ms.map(m=>'<td class="'+(m===hoje?"fx-atual":"")+'">'+brl(grupo.s[m]||0)+'</td>').join("")+
+        '<td>'+brl(ms.reduce((s,m)=>s+(grupo.s[m]||0),0))+'</td></tr>';
+    };
+    fx.linhas.forEach((l,i)=>{
+      if(l.tipo==="g"){ fecha(); grupo={rot:l.rot, lado:l.lado, s:{}, ult:i};
+        h+='<tr class="fx-g '+l.lado+'"><td colspan="'+(ms.length+2)+'">'+(l.lado==="rec"?"▲ ":"▼ ")+esc(l.rot)+'</td></tr>'; return; }
+      if(!grupo) grupo={rot:"", lado:l.lado, s:{}, ult:i};
+      grupo.ult=i;
+      ms.forEach(m=>{ const v=soma(l.v,m); grupo.s[m]=(grupo.s[m]||0)+v; tot[l.lado][m]=(tot[l.lado][m]||0)+v; });
+      h+='<tr><td><div class="fx-rot"><input class="campo" data-fx="rot" data-i="'+i+'" value="'+esc(l.rot)+'" aria-label="Item">'+
+          '<button class="apagar" data-fxdel="'+i+'" title="Apagar linha" aria-label="Apagar linha">×</button></div></td>'+
+        ms.map(m=>'<td class="valor'+(m===hoje?" fx-atual":"")+'"><input class="campo" data-fx="v" data-i="'+i+'" data-m="'+m+'" data-foco="fx:'+i+':'+m+'" value="'+(l.v[m]?brl(l.v[m]):"")+
+          '" placeholder="·" inputmode="decimal" aria-label="'+esc(l.rot)+' em '+abrevMes(m)+'"></td>').join("")+
+        '<td class="fx-tt">'+brl(ms.reduce((s,m)=>s+soma(l.v,m),0))+'</td></tr>';
+    });
+    fecha();
+    // realizado: o que entrou e saiu de verdade nos lançamentos do Negócio
+    const real={};
+    dados.lancamentos.forEach(l=>{
+      if(l.ignorado||!ehMov(l)||!ehNegocio(l)) return;
+      const m=l.data.slice(0,7); if(!ms.includes(m)) return;
+      const r=real[m]||(real[m]={rec:0,desp:0});
+      if(l.valor>0) r.rec+=l.valor; else r.desp-=l.valor;
+    });
+    const temReal=ms.some(m=>real[m]);
+    const cor=v=>v<-0.004?"#C0392B":(v>0.004?"#15803D":"inherit");
+    const linhaT=(rot,f,cls,corV,totAno)=>'<tr class="'+cls+'"><td>'+rot+'</td>'+ms.map(m=>{ const v=f(m);
+      return '<td class="'+(m===hoje?"fx-atual":"")+'" style="color:'+(v==null?"inherit":corV?corV(v):"inherit")+'">'+(v==null?"—":brl(v))+'</td>'; }).join("")+
+      '<td style="color:'+(totAno!=null&&corV?corV(totAno):"inherit")+'">'+(totAno!=null?brl(totAno):"")+'</td></tr>';
+    const somaMs=f=>ms.reduce((s,m)=>s+(f(m)||0),0);
+    let ac=0; const acum={}; ms.forEach(m=>{ ac+=(tot.rec[m]||0)-(tot.desp[m]||0); acum[m]=ac; });
+    h+=linhaT("Total de receitas",m=>tot.rec[m]||0,"fx-t",()=>"#15803D",somaMs(m=>tot.rec[m]))+
+       linhaT("Total de despesas",m=>tot.desp[m]||0,"fx-t",()=>"#C2410C",somaMs(m=>tot.desp[m]))+
+       linhaT("Resultado do mês",m=>(tot.rec[m]||0)-(tot.desp[m]||0),"fx-t",cor,somaMs(m=>(tot.rec[m]||0)-(tot.desp[m]||0)))+
+       linhaT("Resultado acumulado",m=>acum[m],"fx-t",cor,ac);
+    if(temReal)
+      h+=linhaT("Receitas realizadas (lançamentos)",m=>real[m]?real[m].rec:null,"fx-r",null,null)+
+         linhaT("Despesas realizadas (lançamentos)",m=>real[m]?real[m].desp:null,"fx-r",null,null)+
+         linhaT("Resultado realizado",m=>real[m]?real[m].rec-real[m].desp:null,"fx-r",null,null);
+    corpo.innerHTML='<div class="fx-caixa" style="margin-top:14px"><table class="fx-tab"><thead><tr><th>Item</th>'+
+      ms.map(m=>'<th class="'+(m===hoje?"fx-atual":"")+'">'+abrevMes(m)+'</th>').join("")+'<th>Total</th></tr></thead><tbody>'+h+'</tbody></table></div>'+
+      '<p class="nota-linha">Digite sempre o valor positivo: o app soma as receitas e subtrai as despesas. '+
+      'Em <b>+ linha</b> você acrescenta um item ao grupo; o <b>×</b> apaga. As linhas “realizadas” vêm dos lançamentos já importados do Negócio. '+
+      'Para andar pelos meses use ◀ ▶ ou a barra de rolagem.</p>';
+
+    const cx=corpo.querySelector(".fx-caixa");
+    const ajustar=c=>{ c.style.maxHeight=Math.max(320, window.innerHeight-Math.max(c.getBoundingClientRect().top,0)-16)+"px"; };
+    ajustar(cx);
+    if(!window._fxResize){ window._fxResize=true;
+      window.addEventListener("resize",()=>{ const c=document.querySelector("#corpo .fx-caixa"); if(c) ajustar(c); }); }
+    const larguraCol=()=>{ const th=cx.querySelectorAll("thead th"); return th[1]?th[1].offsetWidth:100; };
+    const fixa=()=>{ const th=cx.querySelectorAll("thead th"); return th[0]?th[0].offsetWidth:0; };
+    const irMesAtual=suave=>{ const k=ms.indexOf(hoje); const th=cx.querySelectorAll("thead th")[1+Math.max(k,0)];
+      if(th) cx.scrollTo({left:Math.max(0,th.offsetLeft-fixa()-larguraCol()), behavior:suave?"smooth":"auto"}); };
+    if(ui.fxScroll){ cx.scrollLeft=ui.fxScroll.l; cx.scrollTop=ui.fxScroll.t; } else irMesAtual(false);
+    $("#abas").onclick=e=>{
+      if(ui.conta!=="fluxo") return;
+      if(e.target.closest("[data-fxmes]")){
+        const ult=ms[ms.length-1], novo=pvProxMes(ult); ms.push(novo);
+        fx.linhas.forEach(l=>{ if(l.tipo==="i"&&l.v[ult]) l.v[novo]=l.v[ult]; });
+        salvar(); renderFluxoPJ(); avisar(cap(rotuloMes(novo))+" acrescentado (copiado de "+rotuloMes(ult)+")."); return;
+      }
+      const b=e.target.closest("[data-fxnav]"); if(!b) return;
+      const d=+b.dataset.fxnav;
+      if(!d) irMesAtual(true); else cx.scrollBy({left:d*3*larguraCol(), behavior:"smooth"});
+    };
+    corpo.onchange=e=>{
+      const el=e.target.closest("[data-fx]"); if(!el) return;
+      const l=fx.linhas[+el.dataset.i], k=el.dataset.fx;
+      if(k==="rot") l.rot=el.value.trim();
+      else{
+        const t=String(el.value||"").trim();
+        if(!t) delete l.v[el.dataset.m];
+        else{ const n=numero(t.replace("−","-")); if(isNaN(n)||n===0) delete l.v[el.dataset.m]; else l.v[el.dataset.m]=pvCent(n); }
+      }
+      salvar(); pvManterFoco(renderFluxoPJ);
+    };
+    corpo.onclick=e=>{
+      const ad=e.target.closest("[data-fxadd]");
+      if(ad){
+        const i=+ad.dataset.fxadd, ref=fx.linhas[i];
+        fx.linhas.splice(i+1,0,{tipo:"i", rot:"", lado:ref.lado||"desp", v:{}});
+        salvar(); renderFluxoPJ();
+        const f=document.querySelector('[data-fx="rot"][data-i="'+(i+1)+'"]'); if(f) f.focus();
+        return;
+      }
+      const del=e.target.closest("[data-fxdel]");
+      if(del){
+        const l=fx.linhas[+del.dataset.fxdel];
+        confirmar("Apagar a linha?", esc(l.rot||"(sem nome)")+" sai do fluxo do CNPJ.", "Apagar").then(ok=>{
+          if(!ok) return; fx.linhas.splice(+del.dataset.fxdel,1); salvar(); renderFluxoPJ(); });
+      }
+    };
+  }
+
   function render(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
     marcarConta();
     document.getElementById("lc").classList.toggle("tema-dash",ui.conta==="dash");
     if(ui.conta==="dash"){ renderDashboard(); return; }
     if(ui.conta==="prev"){ renderPrevisao(); return; }
+    if(ui.conta==="fluxo"){ renderFluxoPJ(); return; }
     if(!ui.view) ui.view="mes";
 
     const meses=mesesComDados();
@@ -3633,6 +3812,7 @@
         dados.whatsapp    = remoto.whatsapp||{numero:""};
         dados.previsoes   = normPrev(remoto.previsoes);
         dados.saldosDia   = remoto.saldosDia||{};
+        dados.fluxoPJ     = normFluxoPJ(remoto.fluxoPJ);
         migrar();
         render();
         avisar("Dados carregados da nuvem.");
