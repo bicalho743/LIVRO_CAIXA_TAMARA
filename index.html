@@ -637,6 +637,28 @@
   .fx-tab tr.fx-r td{text-align:right;font-family:var(--serif);font-size:14px;padding:6px 8px;color:var(--cinza);font-variant-numeric:lining-nums tabular-nums}
   .fx-tab tr.fx-r td:first-child{font-family:var(--sans);font-size:12.5px;text-align:left}
   .fx-tab td.fx-tt{font-weight:600;font-family:var(--serif);font-size:14.5px;text-align:right;padding-right:10px}
+
+  /* ---- caixas com barra de rolagem (tabelas grandes) ---- */
+  .fx-caixa::-webkit-scrollbar{height:16px;width:16px}
+  .fx-caixa::-webkit-scrollbar-thumb:hover{background:var(--verde)}
+  .fx-caixa::-webkit-scrollbar-corner{background:#EEEBE3}
+  .fx-caixa[data-cx]{margin-top:6px}
+  #tabelaLanc thead th,.fx-caixa table.matriz thead th{position:sticky!important;top:0;z-index:2;background:#fff}
+  .fx-caixa table.matriz th:first-child,.fx-caixa table.matriz td:first-child{position:sticky;left:0;background:#fff;z-index:1}
+  .fx-caixa table.matriz thead th:first-child{z-index:4}
+  .fx-caixa table.matriz .dre-dest td:first-child{background:#F8F6FF}
+  .fx-caixa table.matriz .dre-sub td:first-child{background:var(--marfim)}
+  .fx-caixa table.matriz th.n,.fx-caixa table.matriz td.n{min-width:92px}
+  .fx-nav.cx-nav{margin:14px 0 4px}
+  /* ---- cartões clicáveis: cada número leva aos lançamentos que o formam ---- */
+  .clic-card{cursor:pointer;transition:background .15s,box-shadow .15s;border-radius:4px}
+  .clic-card:hover{background:rgba(47,74,60,.06)}
+  .barra-fatura .clic-card:hover{background:rgba(255,255,255,.08)}
+  .clic-card:focus-visible{outline:2px solid var(--ouro);outline-offset:2px}
+  .clic-card:hover .rot::after,.clic-card:hover .bf-rot::after,.clic-card:hover .bc-n::after,.clic-card:hover .pv-n::after{content:" \2192";letter-spacing:0}
+  .tot.clic-card{border-radius:0}
+  .pv-l.clic-card{margin-left:-6px;margin-right:-6px;padding-left:6px;padding-right:6px}
+  tr.clic-card:hover td{background:rgba(47,74,60,.06)}
 </style>
 
 <div id="telaLogin">
@@ -675,6 +697,7 @@
           <button id="btExportar">Exportar planilha (CSV)</button>
           <button id="btBackup">Salvar backup</button>
           <button id="btRestaurar">Restaurar backup</button>
+          <button id="btBackupsNuvem">Backups diários na nuvem…</button>
           <hr>
           <button id="btLimpar" class="perigo">Limpar tudo…</button>
         </div>
@@ -909,6 +932,8 @@
     dados.regras.forEach(r=>{ if(r.padrao && r.termo==="FACEBK" && r.categoria==="Assinaturas digitais") r.categoria="Marketing"; });
   }
   let salvando = null;
+  // proteção: se os dados não carregaram da nuvem, NÃO grava (evita sobrescrever o que já está salvo com uma tela vazia)
+  let bloqueioGravar = false, nCarregados = 0, permitirVazio = false;
 
   function avisar(txt,erro){
     const el=$("#aviso"); el.textContent=txt;
@@ -1214,14 +1239,16 @@
       const saldo=r.tE-r.tS;
       const titulo=ui.dashSep==="conta"?(conta==="pj"?"Conta CNPJ":"Conta CPF"):(conta==="pj"?"Negócio — MEI":"Pessoal");
       const dc=conta==="pj"?"#1E8A5F":"#2E86DE";
+      const contaTab=ui.dashSep==="conta"?(conta==="pj"?"bpj":"bcpf"):(conta==="pj"?"pj":"cpf");
+      const kir=tp=>ir({conta:contaTab,mes:ui.mes,tipo:tp,mov:"1",dica:tp==="e"?"Ver as entradas":tp==="s"?"Ver os gastos":"Ver entradas e gastos"});
       return '<section class="dash-col" style="--dc:'+dc+'">'+
         '<h2>'+titulo+'<button class="bt vazado" data-dadd="'+conta+'" style="font-size:12px;padding:6px 12px">+ Lançamento</button></h2>'+
         '<div class="dash-kpis">'+
-          '<div class="dash-kpi"><span class="rot">Entrou</span><div class="v" style="color:#1E8A5F">'+brl(r.tE)+'</div>'+
+          '<div class="dash-kpi clic-card"'+kir("e")+'><span class="rot">Entrou</span><div class="v" style="color:#1E8A5F">'+brl(r.tE)+'</div>'+
             '<span class="kpi-sub">'+(conta==="pj"?"clientes e vendas":"inclui pró-labore")+'</span></div>'+
-          '<div class="dash-kpi"><span class="rot">Gastou</span><div class="v">'+brl(r.tS)+'</div>'+
+          '<div class="dash-kpi clic-card"'+kir("s")+'><span class="rot">Gastou</span><div class="v">'+brl(r.tS)+'</div>'+
             '<span class="kpi-sub">'+(conta==="pj"?"custos do negócio":"seus gastos")+'</span></div>'+
-          '<div class="dash-kpi"><span class="rot">'+(conta==="pj"?(saldo<0?"Prejuízo":"Lucro"):(saldo<0?"Faltou":"Sobrou"))+'</span><div class="v" style="color:'+(saldo<0?"#C0392B":"#1E8A5F")+'">'+brl(saldo)+'</div>'+
+          '<div class="dash-kpi clic-card"'+kir("")+'><span class="rot">'+(conta==="pj"?(saldo<0?"Prejuízo":"Lucro"):(saldo<0?"Faltou":"Sobrou"))+'</span><div class="v" style="color:'+(saldo<0?"#C0392B":"#1E8A5F")+'">'+brl(saldo)+'</div>'+
             '<span class="kpi-sub">entrou − gastou</span></div>'+
         '</div>'+
         (conta==="pj"&&ui.dashSep!=="conta"?cascataHTML(fluxoNegocio(dados.lancamentos.filter(noPeriodo)),true):"")+
@@ -1245,7 +1272,7 @@
         todosMeses.slice().reverse().map(m=>{
           const a=soma(m,"pf","e"),b=soma(m,"pf","s"),c=soma(m,"pj","e"),d=soma(m,"pj","s");
           const cel=v=>'<td>'+(v?brl(v):'<span style="color:var(--linha)">—</span>')+'</td>';
-          return '<tr><td>'+cap(rotuloMes(m))+(m>mesAtual()?' <span class="sub">(previsto)</span>':'')+'</td>'+cel(a)+cel(b)+
+          return '<tr class="clic-card"'+ir({conta:"dash",mes:m,dica:"Ver a Visão geral de "+rotuloMes(m)})+'><td>'+cap(rotuloMes(m))+(m>mesAtual()?' <span class="sub">(previsto)</span>':'')+'</td>'+cel(a)+cel(b)+
             '<td style="color:'+(a-b<0?"#C0392B":"#1E8A5F")+'">'+brl(a-b)+'</td>'+
             cel(c)+cel(d)+
             '<td style="color:'+(c-d<0?"#C0392B":"#1E8A5F")+'">'+brl(c-d)+'</td></tr>';
@@ -1270,9 +1297,9 @@
         (fx.informal>0?' — a diferença foi paga com a receita do negócio que caiu no CPF.':' — a diferença saiu de saldo guardado ou crédito.');
     }
     const faixa = dados.lancamentos.length ? '<section class="dash-geral">'+
-        '<div class="g-num"><span class="rot">Entrou no total</span><div class="v" style="color:#1E8A5F">R$ '+brl(gE)+'</div></div>'+
-        '<div class="g-num"><span class="rot">Gastou no total</span><div class="v">R$ '+brl(gS)+'</div></div>'+
-        '<div class="g-num"><span class="rot">'+(gR<0?"Faltou":"Sobrou")+' no total</span><div class="v" style="color:'+(gR<0?"#C0392B":"#1E8A5F")+'">R$ '+brl(gR)+'</div></div>'+
+        '<div class="g-num clic-card"'+ir({conta:"todas",mes:ui.mes,tipo:"e",mov:"1",dica:"Ver todas as entradas do período"})+'><span class="rot">Entrou no total</span><div class="v" style="color:#1E8A5F">R$ '+brl(gE)+'</div></div>'+
+        '<div class="g-num clic-card"'+ir({conta:"todas",mes:ui.mes,tipo:"s",mov:"1",dica:"Ver todos os gastos do período"})+'><span class="rot">Gastou no total</span><div class="v">R$ '+brl(gS)+'</div></div>'+
+        '<div class="g-num clic-card"'+ir({conta:"todas",mes:ui.mes,tipo:"",mov:"1",dica:"Ver entradas e gastos do período"})+'><span class="rot">'+(gR<0?"Faltou":"Sobrou")+' no total</span><div class="v" style="color:'+(gR<0?"#C0392B":"#1E8A5F")+'">R$ '+brl(gR)+'</div></div>'+
         (historia?'<p class="g-hist">'+historia+'</p>':'')+
       '</section>' : "";
 
@@ -1303,7 +1330,7 @@
         const alvo=sp.dataset.sepir;
         if(alvo.startsWith("fat:")){ abrirFaturamento(alvo.slice(4)); return; }
         if(alvo.startsWith("metas:")){ const [,ct,ym]=alvo.split(":"); ui.conta=ct; ui.view="metas"; ui.mes=ym; render(); return; }
-        ui.cat=""; ui.tipo=""; ui.origem=""; ui.errada=true; irPara(alvo);
+        ui.cat=""; ui.tipo=""; ui.origem=""; ui.soMov=""; ui.errada=true; irPara(alvo);
         try{document.getElementById("tabelaLanc").scrollIntoView({behavior:"smooth",block:"start"});}catch(_){ } return; }
       const ds=e.target.closest("[data-dsep]");
       if(ds){ ui.dashSep=ds.dataset.dsep; renderDashboard(); return; }
@@ -1312,7 +1339,7 @@
       const ln=e.target.closest("[data-dcat]");
       if(ln){
         const cat=ln.dataset.dcat, lado=ln.dataset.dconta, tipo=ln.dataset.dtipo;
-        ui.origem=""; ui.cat=cat; ui.tipo=tipo;
+        ui.origem=""; ui.cat=cat; ui.tipo=tipo; ui.soMov="1";
         irPara(ui.dashSep==="conta"?(lado==="pj"?"bpj":"bcpf"):(lado==="pj"?"pj":"cpf"));
         try{ document.getElementById("tabelaLanc").scrollIntoView({behavior:"smooth",block:"start"}); }catch(_){}
         avisar("Filtrando "+cat+". Para voltar, clique em Visão geral.");
@@ -1320,6 +1347,22 @@
     };
   }
 
+  // aplica no estado do app os dados vindos da nuvem, do arquivo local ou de um backup diário
+  function aplicarDados(d){
+    dados.lancamentos = d.lancamentos||[];
+    dados.saldos      = d.saldos||{};
+    dados.regras      = (d.regras&&d.regras.length)?d.regras:REGRAS_PADRAO.slice();
+    dados.prolabore   = d.prolabore||0;
+    dados.faturaAberta = d.faturaAberta||null;
+    dados.faturaFechada= d.faturaFechada||null;
+    dados.metas       = normMetas(d.metas);
+    dados.whatsapp    = d.whatsapp||{numero:""};
+    dados.previsoes   = normPrev(d.previsoes);
+    dados.saldosDia   = d.saldosDia||{};
+    dados.fluxoPJ     = normFluxoPJ(d.fluxoPJ);
+    migrar();
+    dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
+  }
   async function carregar(){
     try{
       // verificar sessão Supabase
@@ -1338,19 +1381,7 @@
       }
 
       if(d){
-        dados.lancamentos = d.lancamentos||[];
-        dados.saldos      = d.saldos||{};
-        dados.regras      = (d.regras&&d.regras.length)?d.regras:REGRAS_PADRAO.slice();
-        dados.prolabore   = d.prolabore||0;
-        dados.faturaAberta = d.faturaAberta||null;
-        dados.faturaFechada= d.faturaFechada||null;
-        dados.metas       = normMetas(d.metas);
-        dados.whatsapp    = d.whatsapp||{numero:""};
-        dados.previsoes   = normPrev(d.previsoes);
-        dados.saldosDia   = d.saldosDia||{};
-        dados.fluxoPJ     = normFluxoPJ(d.fluxoPJ);
-        migrar();
-        dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
+        aplicarDados(d);
         // migração: remover lançamentos do cartão com data > hoje+6 meses (bug antigo)
         const limiteMs = Date.now() + 180*24*60*60*1000;
         let corrigidos = 0;
@@ -1362,12 +1393,27 @@
         });
         if(corrigidos > 0) await salvarImediato();
       }
-    }catch(e){ console.error("Erro ao carregar:", e); }
+      if(sbUser) nCarregados = dados.lancamentos.length;
+    }catch(e){
+      console.error("Erro ao carregar:", e);
+      if(sbUser){
+        bloqueioGravar = true;
+        modal('<h3 class="modal-tit">Não consegui carregar seus dados</h3>'+
+          '<p class="modal-corpo">A conexão com a nuvem falhou (a sessão pode ter expirado). Para proteger o que já está salvo, '+
+          '<b>a gravação ficou pausada</b> e nada foi alterado. Recarregue a página e entre de novo com o Google.</p>'+
+          '<div class="modal-acoes"><button class="bt" data-modal="ok">Entendi</button></div>');
+      }
+    }
   }
   async function salvarImediato(){
+    if(bloqueioGravar){ const e=new Error("gravação pausada"); e.pausada=true; throw e; }
+    if(sbUser && nCarregados>0 && dados.lancamentos.length===0 && !permitirVazio){
+      const e=new Error("recusei gravar uma lista vazia por cima de dados existentes"); e.pausada=true; throw e;
+    }
     const payload = JSON.parse(JSON.stringify(dados));
     if(sbUser){
       await sbSalvar(payload);
+      nCarregados = dados.lancamentos.length; permitirVazio = false;
     } else {
       localStorage.setItem(CHAVE, JSON.stringify(payload));
     }
@@ -1377,7 +1423,10 @@
     clearTimeout(salvando);
     salvando = setTimeout(async()=>{
       try{ await salvarImediato(); }
-      catch(e){ avisar("Não consegui gravar. Salve um backup para não perder o trabalho.",true); }
+      catch(e){
+        if(e&&e.pausada) avisar("Gravação pausada para proteger seus dados. Recarregue a página e entre de novo com o Google.",true);
+        else avisar("Não consegui gravar. Salve um backup para não perder o trabalho.",true);
+      }
     },350);
   }
 
@@ -1895,7 +1944,7 @@
                  : d===0 ? 'Fecha <b>hoje</b>'
                  : 'Fechou em '+dm(fecha)+' — importe a fatura fechada'; }
       return '<section class="barra-fatura">'+
-        '<div><div class="bf-rot">Fatura do cartão em aberto'+(cart?' · '+esc(cart):'')+'</div>'+
+        '<div class="clic-card"'+ir({conta:"todas",mes:"tudo",tipo:"",origem:"cartao",dica:"Ver as compras do cartão"})+'><div class="bf-rot">Fatura do cartão em aberto'+(cart?' · '+esc(cart):'')+'</div>'+
           '<div class="bf-valor">R$ '+brl(a.total)+'</div>'+
           '<div class="bf-sub">compras até '+dm(a.atualizadoEm)+
             (a.pendente?' · + R$ '+brl(a.pendente)+' em processamento':'')+'</div></div>'+
@@ -1904,13 +1953,13 @@
     }
     // sem fatura em aberto importada: mostra a última fechada
     return '<section class="barra-fatura">'+
-      '<div><div class="bf-rot">Última fatura do cartão'+(f.cartao?' · '+esc(f.cartao):'')+'</div>'+
+      '<div class="clic-card"'+ir({conta:"todas",mes:"tudo",tipo:"",origem:"cartao",dica:"Ver as compras do cartão"})+'><div class="bf-rot">Última fatura do cartão'+(f.cartao?' · '+esc(f.cartao):'')+'</div>'+
         '<div class="bf-valor">R$ '+brl(f.total)+'</div>'+
         '<div class="bf-sub">'+(f.vencimento?(f.vencimento<hoje?'venceu em ':'vence em ')+dm(f.vencimento):'')+'</div></div>'+
       '<div class="bf-lado"><span class="bf-ult">Importe a fatura atual do BB para ver o valor em aberto</span>'+bt+'</div>'+
     '</section>';
   }
-  const visaoNatureza = () => ui.conta==="cpf"||ui.conta==="pj";
+  const visaoNatureza = () => ui.conta==="cpf"||ui.conta==="pj"||ui.conta==="todas";
   function lancDaConta(){
     if(ui.conta==="cpf")  return dados.lancamentos.filter(l=>!ehNegocio(l));
     if(ui.conta==="pj")   return dados.lancamentos.filter(l=>ehNegocio(l));
@@ -2002,7 +2051,7 @@
   }
   function abrirFaturamento(ano){
     ui.conta="pj"; ui.view="mes"; ui.mes="tudo";
-    ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem=""; ui.fat=String(ano);
+    ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem=""; ui.soMov=""; ui.fat=String(ano);
     ui.sortCol="valor"; ui.sortDir=1; // tabela mostra invertido: maior primeiro
     render();
     try{ document.getElementById("tabelaLanc").scrollIntoView({behavior:"smooth",block:"start"}); }catch(_){}
@@ -2018,6 +2067,15 @@
       if(ui.origem){ const o=l.origem==="cartao"?"cartao":l.origem==="pj"?"pj":"pf"; if(o!==ui.origem) return false; }
       if(ui.tipo==="e" && l.valor<=0) return false;
       if(ui.tipo==="s" && l.valor>=0) return false;
+      if(ui.soMov){
+        if(l.ignorado) return false;
+        if(ui.soMov==="b"){ if(l.origem==="cartao") return false; }          // como no banco: sem as compras do cartão
+        else{
+          if(!ehMov(l)) return false;                                         // fora fatura, aplicações e transferências
+          if((ui.conta==="pj"||ui.conta==="bpj")&&ehRetirada(l)) return false; // pró-labore não é custo do negócio
+          if(ui.conta==="todas"&&l.categoria===CAT_PL) return false;
+        }
+      }
       return true;
     });
     const col=ui.sortCol||"data", dir=ui.sortDir||1;
@@ -2119,6 +2177,63 @@
       }catch(e){ avisar("Esse arquivo não é um backup do livro-caixa.",true); }
     };
     fr.readAsText(arq);
+  }
+
+
+  /* ================= backups diários na nuvem ================= */
+  // O Supabase copia os dados todo dia (tabela livro_caixa_backup). Aqui você vê os dias, baixa ou volta para um deles.
+  async function abrirBackupsNuvem(){
+    if(!sbUser){ avisar("Entre com o Google para ver os backups diários na nuvem.",true); return; }
+    let dias=[];
+    try{
+      const { data, error } = await sb.from("livro_caixa_backup").select("dia,atualizado_em")
+        .eq("user_id",sbUser.id).eq("chave",CHAVE).order("dia",{ascending:false}).limit(60);
+      if(error) throw error;
+      dias=data||[];
+    }catch(e){ console.error(e); avisar("Não consegui ler os backups da nuvem. Tente de novo em instantes.",true); return; }
+    const dm=iso=>iso.slice(8,10)+"/"+iso.slice(5,7)+"/"+iso.slice(0,4);
+    const hora=ts=>{ try{ return new Date(ts).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }catch(_){ return ""; } };
+    const v = await modal(
+      '<h3 class="modal-tit">Backups diários na nuvem</h3>'+
+      '<p class="modal-corpo" style="margin-bottom:10px">Uma cópia por dia, guardada pelo Supabase (os últimos 30 dias e o dia 1 de cada mês). '+
+      'Baixar não muda nada. Voltar para um dia troca os dados de hoje pelos daquele dia — antes disso eu baixo um arquivo com os dados atuais.</p>'+
+      (dias.length
+        ? '<div style="max-height:340px;overflow-y:auto;margin:0 -4px">'+dias.map(r=>
+            '<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--linha-clara);flex-wrap:wrap">'+
+              '<span style="flex:1;min-width:150px"><b>'+dm(r.dia)+'</b><br><span class="sub" style="margin:0">dados de '+esc(hora(r.atualizado_em))+'</span></span>'+
+              '<button class="bt vazado" style="padding:6px 12px;font-size:12px" data-modal="baixar:'+r.dia+'">Baixar</button>'+
+              '<button class="bt" style="padding:6px 12px;font-size:12px" data-modal="voltar:'+r.dia+'">Voltar para este dia</button>'+
+            '</div>').join("")+'</div>'
+        : '<p class="sub">Ainda não há backups. O primeiro é gerado automaticamente todo dia de madrugada.</p>')+
+      '<div class="modal-acoes" style="margin-top:14px"><button class="bt vazado" data-modal="cancelar">Fechar</button></div>');
+    if(!v||typeof v!=="string") return;
+    const [acao,dia]=v.split(":");
+    let valor=null;
+    try{
+      const { data, error } = await sb.from("livro_caixa_backup").select("valor")
+        .eq("user_id",sbUser.id).eq("chave",CHAVE).eq("dia",dia).maybeSingle();
+      if(error) throw error;
+      valor=data&&data.valor;
+    }catch(e){ console.error(e); }
+    if(!valor||!Array.isArray(valor.lancamentos)){ avisar("Não consegui abrir o backup de "+dm(dia)+".",true); return; }
+    if(acao==="baixar"){
+      baixar("livro-caixa-nuvem-"+dia+".json",JSON.stringify(valor,null,1),"application/json");
+      avisar("Backup de "+dm(dia)+" baixado."); return;
+    }
+    if(acao==="voltar"){
+      const ok = await confirmar("Voltar para "+dm(dia)+"?",
+        "O backup tem <b>"+valor.lancamentos.length+" lançamentos</b>; hoje você tem <b>"+dados.lancamentos.length+"</b>. "+
+        "Vou baixar um arquivo com os dados de hoje e depois trocar tudo pelos dados daquele dia (na nuvem também).","Voltar para este dia");
+      if(!ok) return;
+      try{
+        exportarBackup();                         // 1) guarda os dados de hoje num arquivo
+        aplicarDados(valor);                      // 2) aplica os do dia escolhido
+        bloqueioGravar=false; permitirVazio=true;
+        await salvarImediato();                   // 3) grava na nuvem
+        ui.mes=null; render();
+        avisar("Dados de "+dm(dia)+" restaurados ("+dados.lancamentos.length+" lançamentos).");
+      }catch(e){ console.error(e); avisar("Não consegui gravar a restauração. Seus dados de hoje foram baixados em arquivo.",true); }
+    }
   }
 
   /* ================= desenho da tela ================= */
@@ -2355,10 +2470,10 @@
         '<div class="pv-resumo" id="pv-resumo">'+
           '<label class="pv-l">Saldo em conta<input class="campo" data-pv="saldo" data-foco="saldo" value="'+brl(t.saldo)+'" placeholder="0,00" inputmode="decimal"></label>'+
           '<p class="sub" id="pvSaldoF" style="margin:-4px 0 6px;text-align:right">'+origemSaldo+'</p>'+
-          '<div class="pv-l"><span>A receber</span><b id="pvReceber" style="color:#1E8A5F">'+pvBrlS(t.receber)+'</b></div>'+
-          '<div class="pv-l"><span>Anotações</span><b id="pvOutras" style="color:'+(t.outras<0?"#C0392B":"#1E8A5F")+'">'+pvBrlS(t.outras)+'</b></div>'+
-          '<div class="pv-l"><span>A pagar</span><b id="pvAPagar">'+brl(t.aPagar)+'</b></div>'+
-          '<div class="pv-tot"><span id="pvRot">'+(t.resultado<0?"Falta no mês":"Sobra no mês")+'</span>'+
+          '<div class="pv-l clic-card"'+ir({conta:"prev",alvo:"#pv-receitas",dica:"Ver as receitas esperadas"})+'><span class="pv-n">A receber</span><b id="pvReceber" style="color:#1E8A5F">'+pvBrlS(t.receber)+'</b></div>'+
+          '<div class="pv-l clic-card"'+ir({conta:"prev",alvo:"#pv-notas",dica:"Ver as anotações"})+'><span class="pv-n">Anotações</span><b id="pvOutras" style="color:'+(t.outras<0?"#C0392B":"#1E8A5F")+'">'+pvBrlS(t.outras)+'</b></div>'+
+          '<div class="pv-l clic-card"'+ir({conta:"prev",alvo:"#pv-itens",dica:"Ver as contas a pagar"})+'><span class="pv-n">A pagar</span><b id="pvAPagar">'+brl(t.aPagar)+'</b></div>'+
+          '<div class="pv-tot clic-card"'+ir({conta:"prev",alvo:"#pv-itens",dica:"Ver as contas que formam o resultado"})+'><span id="pvRot">'+(t.resultado<0?"Falta no mês":"Sobra no mês")+'</span>'+
             '<b id="pvRes" style="color:'+(t.resultado<0?"#C0392B":"#1E8A5F")+'">R$ '+brl(t.resultado)+'</b></div>'+
           '<p class="sub" style="margin-top:8px">Saldo em conta + a receber + anotações − a pagar. O ✓ numa receita marca como recebida e tira da soma (o dinheiro já está no saldo).</p>'+
           '<p class="sub" id="pvPago" style="margin-top:4px">Já pago no mês: R$ '+brl(t.pago)+'</p>'+
@@ -2445,7 +2560,7 @@
       const s=saldoBanco(o);
       const fonte=s?('saldo de '+dm(s.base)+(s.ate>s.base?' + lançamentos até '+dm(s.ate):''))
                    :'importe o extrato ou digite o saldo';
-      return '<div class="bc-l" style="--b:'+(o==="pj"?"#1E8A5F":"#2E86DE")+'"><span class="bc-n">'+nome+'</span>'+
+      return '<div class="bc-l clic-card"'+ir({conta:o==="pj"?"bpj":"bcpf",mes:mesAtual(),tipo:"",dica:"Ver os lançamentos da "+nome})+' style="--b:'+(o==="pj"?"#1E8A5F":"#2E86DE")+'"><span class="bc-n">'+nome+'</span>'+
         '<b style="color:'+(s?cor(s.v):"var(--cinza)")+'">'+(s?'R$ '+brl(s.v):'—')+'</b>'+
         '<span class="kpi-sub">'+fonte+' · <button class="ver-mais" data-bcajustar="'+o+'">'+(s?'ajustar':'digitar saldo')+'</button></span></div>';
     };
@@ -2648,7 +2763,7 @@
     // Pessoal / Negócio: gasto real — compras do cartão entram na data da compra;
     //   pagamento de fatura e aplicações ficam fora (senão conta duas vezes).
     // Conferir extrato: igual ao banco — sem as compras do cartão, com o débito da fatura.
-    const base = natureza ? lista.filter(ehMov) : lista.filter(l=>l.origem!=="cartao");
+    const base = natureza ? lista.filter(l=>ehMov(l)&&!(ui.conta==="todas"&&l.categoria===CAT_PL)) : lista.filter(l=>l.origem!=="cartao");
     const soma = a => a.reduce((s,l)=>s+l.valor,0);
     const ehPJ = natureza && ui.conta==="pj";
     const retiradas = ehPJ ? base.filter(ehRetirada) : [];
@@ -2683,7 +2798,7 @@
     // nota explicativa (uma linha)
     let nota;
     if(natureza){
-      const partes=["Compras do cartão contam na data da compra."];
+      const partes=[ui.conta==="todas"?"Pessoal e Negócio juntos, sem o pró-labore (é só dinheiro mudando de bolso). Compras do cartão contam na data da compra.":"Compras do cartão contam na data da compra."];
       if(fatura) partes.push("Pagamento de fatura (R$ "+brl(fatura)+") não é gasto: as compras já estão contadas.");
       if(aplic) partes.push("Aplicações e resgates (R$ "+brl(Math.abs(aplic))+") ficam fora.");
       const entre=Math.abs(soma(lista.filter(l=>l.categoria===CAT_ENTRE)));
@@ -2714,15 +2829,16 @@
       avisos.push('<div class="alerta"><div><b>'+diasNeg.length+' dia'+(diasNeg.length===1?"":"s")+
         ' no cheque especial.</b> O saldo chegou a R$ '+brl(fundo)+'.</div></div>');
 
+    const mvC = natureza ? "1" : "b";     // 1 = só o que entra no total · b = como no banco (sem compras do cartão)
     const cartoes = natureza
-      ? cartao("Entrou",ent,"pos",base.filter(l=>l.valor>0).length+" lançamentos","#1E8A5F")+
-        cartao("Gastou",Math.abs(sai),"",baseGasto.filter(l=>l.valor<0).length+" lançamentos"+(ehPJ?" · sem pró-labore":""),"#E08E0B")+
+      ? cartao("Entrou",ent,"pos",base.filter(l=>l.valor>0).length+" lançamentos","#1E8A5F",{conta:ui.conta,mes:ui.mes,tipo:"e",mov:mvC,dica:"Ver as entradas"})+
+        cartao("Gastou",Math.abs(sai),"",baseGasto.filter(l=>l.valor<0).length+" lançamentos"+(ehPJ?" · sem pró-labore":""),"#E08E0B",{conta:ui.conta,mes:ui.mes,tipo:"s",mov:mvC,dica:"Ver os gastos"})+
         (ehPJ
-          ? cartao(res<0?"Prejuízo":"Lucro",res,res<0?"neg":"pos","entrou − gastou, antes do pró-labore",res<0?"#C0392B":"#1E8A5F")
-          : cartao(res<0?"Faltou":"Sobrou",res,res<0?"neg":"pos","entrou − gastou",res<0?"#C0392B":"#1E8A5F"))
-      : cartao("Entradas",ent,"pos",base.filter(l=>l.valor>0).length+" lançamentos","#1E8A5F")+
-        cartao("Saídas",Math.abs(sai),"",base.filter(l=>l.valor<0).length+" lançamentos","#E08E0B")+
-        cartao("Saldo final",fim,fim<0?"neg":"",ui.mes==="tudo"?"acumulado":"em "+rotuloMes(ui.mes),fim<0?"#C0392B":"#2E86DE");
+          ? cartao(res<0?"Prejuízo":"Lucro",res,res<0?"neg":"pos","entrou − gastou, antes do pró-labore",res<0?"#C0392B":"#1E8A5F",{conta:ui.conta,mes:ui.mes,tipo:"",mov:mvC,dica:"Ver entradas e gastos"})
+          : cartao(res<0?"Faltou":"Sobrou",res,res<0?"neg":"pos","entrou − gastou",res<0?"#C0392B":"#1E8A5F",{conta:ui.conta,mes:ui.mes,tipo:"",mov:mvC,dica:"Ver entradas e gastos"}))
+      : cartao("Entradas",ent,"pos",base.filter(l=>l.valor>0).length+" lançamentos","#1E8A5F",{conta:ui.conta,mes:ui.mes,tipo:"e",mov:mvC,dica:"Ver as entradas"})+
+        cartao("Saídas",Math.abs(sai),"",base.filter(l=>l.valor<0).length+" lançamentos","#E08E0B",{conta:ui.conta,mes:ui.mes,tipo:"s",mov:mvC,dica:"Ver as saídas"})+
+        cartao("Saldo final",fim,fim<0?"neg":"",ui.mes==="tudo"?"acumulado":"em "+rotuloMes(ui.mes),fim<0?"#C0392B":"#2E86DE",{conta:ui.conta,mes:ui.mes,tipo:"",mov:mvC,dica:"Ver os lançamentos do mês (o saldo final soma também o saldo inicial)"});
 
     const verMais=(chave,tot,aberto)=>tot>LIM?'<button class="ver-mais" data-vermais="'+chave+'">'+
       (aberto?"Mostrar menos":"Ver todas as "+tot+" categorias")+'</button>':"";
@@ -2758,7 +2874,7 @@
         '<span class="conta" id="conta"></span>'+
       '</div>'+
       '<div class="chips" id="chips"></div>'+
-      '<div class="rolagem"><table id="tabelaLanc"><thead><tr>'+
+      '<div class="fx-caixa" data-cx="lanc"><table id="tabelaLanc"><thead><tr>'+
       ['data','hist','categoria','vinculo','valor'].map((col,i)=>{
         const labs=['Data','Descrição','Categoria','Vínculo','Valor'];
         const st=ui.sortCol===col?(ui.sortDir>0?' ↑':' ↓'):'';
@@ -2857,8 +2973,8 @@
         (linhas.length>9?'<span class="fraco">e mais '+(linhas.length-9)+'</span>':"")+'</div>'+
 
       '<div class="tit-secao" style="margin-top:38px"><h3>Gastos por categoria</h3></div>'+
-      '<div class="rolagem"><table class="matriz"><thead><tr><th>Categoria</th>'+
-        nomes.map(n=>'<th class="n">'+n+'</th>').join("")+
+      '<div class="fx-caixa" data-cx="cmp" data-meses="1"><table class="matriz"><thead><tr><th>Categoria</th>'+
+        cols.map((m,i)=>'<th class="n" data-m="'+m+'">'+nomes[i]+'</th>').join("")+
         '<th class="n">Média</th><th class="n">Variação</th></tr></thead><tbody>'+
       linhas.map(l=>'<tr><td>'+ponto(l.cat)+esc(l.cat)+'</td>'+
         l.v.map((x,i)=>'<td class="n'+(i===l.v.length-1&&x?" forte":"")+'">'+(x?brl(x):'<span class="zero">·</span>')+'</td>').join("")+
@@ -2960,7 +3076,7 @@
     const acumPLreal = cols.reduce((a,m)=>a+plDe(m),0);
 
     // tabela mensal
-    const cabMeses = cols.map(m=>'<th class="n" style="min-width:100px">'+abrevMes(m)+'</th>').join("");
+    const cabMeses = cols.map(m=>'<th class="n" data-m="'+m+'" style="min-width:100px">'+abrevMes(m)+'</th>').join("");
     const linhasSoma = cols.map(m=>{
       const col = porMes.find(c=>c.mes===m);
       return calcDRE(col.grupos, plDe(m));
@@ -3036,7 +3152,7 @@
 
     // cards de resumo acumulado
     function cardDRE(rot, val, c, sub){
-      return '<div class="tot" style="--c:'+c+'"><span class="rot">'+rot+'</span>'
+      return '<div class="tot clic-card"'+ir({alvo:"#dre-tab",dica:"Ver a DRE mês a mês"})+' style="--c:'+c+'"><span class="rot">'+rot+'</span>'
         +'<div class="num" style="color:'+c+'"><small>R$</small>'+brl(val)+'</div>'
         +'<p class="sub">'+sub+'</p></div>';
     }
@@ -3071,7 +3187,7 @@
       +'</div>'
 
       // tabela DRE
-      +'<div class="rolagem" style="margin-top:28px">'
+      +'<div class="fx-caixa" id="dre-tab" data-cx="dre" data-meses="1" style="margin-top:28px">'
       +'<table class="matriz dre-tabela"><thead><tr><th style="min-width:220px">Item</th>'
       +cabMeses+'<th class="n" style="min-width:110px;color:#5B4FCF">Acumulado</th></tr></thead>'
       +'<tbody>'+tabelaLinhas+'</tbody></table></div>'
@@ -3261,12 +3377,12 @@
         (comMeta.length?'<button class="bt vazado" id="btZerarMetas">Limpar metas</button>':'')+'</div></div>'+
       '<p class="nota-linha">A meta é um limite mensal por categoria e vale para todos os meses. A linha escura na barra marca o dia de hoje: se a cor passar dela, o gasto está correndo mais rápido que o mês.</p>'+
       (comMeta.length?'<section class="totais">'+
-        cartao("Metas somadas",totMeta,"",comMeta.length+" categoria"+(comMeta.length>1?"s":"")+" com meta","#2E86DE")+
-        cartao("Gasto nessas categorias",totGasto,"",Math.round(totGasto/totMeta*100)+"% do total das metas",sitT.c)+
-        cartao(estouradas?"Estouraram":"Dentro da meta",estouradas||comMeta.length,estouradas?"neg":"pos",estouradas?(estouradas>1?"categorias acima do limite":"categoria acima do limite"):"todas as categorias",estouradas?"#C0392B":"#1E8A5F").replace(/<small>R\$<\/small>([\d.,]+)/,(m,n)=>n.replace(",00",""))+
+        cartao("Metas somadas",totMeta,"",comMeta.length+" categoria"+(comMeta.length>1?"s":"")+" com meta","#2E86DE",{alvo:"#mt-lista",dica:"Ver as metas por categoria"})+
+        cartao("Gasto nessas categorias",totGasto,"",Math.round(totGasto/totMeta*100)+"% do total das metas",sitT.c,{alvo:"#mt-lista",dica:"Ver o gasto de cada categoria"})+
+        cartao(estouradas?"Estouraram":"Dentro da meta",estouradas||comMeta.length,estouradas?"neg":"pos",estouradas?(estouradas>1?"categorias acima do limite":"categoria acima do limite"):"todas as categorias",estouradas?"#C0392B":"#1E8A5F",{alvo:"#mt-lista",dica:"Ver as categorias"}).replace(/<small>R\$<\/small>([\d.,]+)/,(m,n)=>n.replace(",00",""))+
       '</section>':'')+
       fat+
-      '<div class="rolagem"><table class="metas-tab"><thead><tr><th>Categoria</th><th class="col-media" style="text-align:right">Média 3 meses</th><th style="text-align:right">Meta mensal</th><th style="text-align:right">Gasto no mês</th><th>Andamento</th></tr></thead><tbody>'+
+      '<div class="rolagem" id="mt-lista"><table class="metas-tab"><thead><tr><th>Categoria</th><th class="col-media" style="text-align:right">Média 3 meses</th><th style="text-align:right">Meta mensal</th><th style="text-align:right">Gasto no mês</th><th>Andamento</th></tr></thead><tbody>'+
         cats.map(linha).join("")+'</tbody></table></div>'+
       waBox(ym)+
       '<div class="rodape"><span>As metas ficam salvas na nuvem junto com os lançamentos</span><span>Sua casa pronta para viver</span></div>';
@@ -3415,8 +3531,8 @@
     });
   }
 
-  function cartao(rot,val,cls,sub,c){
-    return '<div class="tot" style="--c:'+c+'"><span class="rot">'+rot+'</span>'+
+  function cartao(rot,val,cls,sub,c,irO){
+    return '<div class="tot'+(irO?' clic-card"'+ir(irO):'"')+' style="--c:'+c+'"><span class="rot">'+rot+'</span>'+
       '<div class="num" style="color:'+c+'"><small>R$</small>'+brl(val)+'</div>'+
       '<p class="sub">'+sub+'</p></div>';
   }
@@ -3444,8 +3560,9 @@
     const lista=filtrados().slice().reverse();
     const tb=$("#corpoTabela");
     const riscados=doMes().filter(l=>l.ignorado).length;
+    const somaTab = lista.filter(l=>!l.ignorado).reduce((a,l)=>a+l.valor,0);
     $("#conta").textContent = lista.length+" de "+doMes().length+" lançamentos"+
-      (riscados?" · "+riscados+" riscado"+(riscados===1?"":"s"):"");
+      (riscados?" · "+riscados+" riscado"+(riscados===1?"":"s"):"")+" · soma R$ "+brl(Math.round(somaTab*100)/100);
     document.querySelectorAll("#tabelaLanc th[data-sort]").forEach(th=>{
       const lab={data:"Data",hist:"Descrição",categoria:"Categoria",vinculo:"Vínculo",valor:"Valor"}[th.dataset.sort];
       th.firstChild.textContent=lab+(ui.sortCol===th.dataset.sort?(ui.sortDir>0?" ↑":" ↓"):"");
@@ -3453,6 +3570,7 @@
     const chips=[];
     if(ui.fat) chips.push(["fat","Faturamento MEI "+ui.fat+" · R$ "+brl(lista.reduce((a,l)=>a+l.valor,0))]);
     if(ui.errada) chips.push(["errada","Pela conta errada"]);
+    if(ui.soMov) chips.push(["soMov",ui.soMov==="b"?"Sem compras do cartão (como no banco)":"Só o que entra no total"]);
     if(ui.busca) chips.push(["busca","“"+ui.busca+"”"]);
     if(ui.cat) chips.push(["cat",ui.cat]);
     if(ui.tipo) chips.push(["tipo",ui.tipo==="e"?"Só entradas":"Só saídas"]);
@@ -3549,7 +3667,7 @@
     document.getElementById("corpo").onclick=e=>{
       if(e.target.closest("[data-irmetas]")){ ui.view="metas"; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
       const er=e.target.closest("[data-errada]");
-      if(er){ ui.errada=!ui.errada; ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem="";ui.fat="";
+      if(er){ ui.errada=!ui.errada; ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem="";ui.fat="";ui.soMov="";
         render(); try{document.getElementById("tabelaLanc").scrollIntoView({behavior:"smooth",block:"start"});}catch(_){ } return; }
       const fb=e.target.closest("[data-fat]");
       if(fb){ abrirFaturamento(fb.dataset.fat); return; }
@@ -3557,7 +3675,7 @@
       if(vm){ const k=vm.dataset.vermais==="sai"?"verTodasSai":"verTodasEnt"; ui[k]=!ui[k]; render(); return; }
       const chip=e.target.closest("[data-chip]");
       if(chip){ const k=chip.dataset.chip;
-        if(k==="*"){ ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem="";ui.fat="";ui.errada=""; } else ui[k]="";
+        if(k==="*"){ ui.busca="";ui.cat="";ui.tipo="";ui.vinculo="";ui.origem="";ui.fat="";ui.errada="";ui.soMov=""; } else ui[k]="";
         render(); try{document.getElementById("tabelaLanc").scrollIntoView({block:"start"});}catch(_){ } return; }
       const th=e.target.closest("th[data-sort]"); if(!th||e.target.closest(".col-drag")) return;
       const col=th.dataset.sort;
@@ -3680,7 +3798,7 @@
     const linha=e.target.closest("[data-filtrar]"); if(!linha) return;
     const cat=linha.dataset.filtrar;
     ui.cat = ui.cat===cat ? "" : cat;
-    ui.busca=""; ui.tipo=""; ui.vinculo=""; ui.fat=""; ui.errada="";
+    ui.busca=""; ui.tipo=""; ui.vinculo=""; ui.fat=""; ui.errada=""; ui.soMov="";
     render();
     try{const tb=document.getElementById("corpoTabela");
       if(tb) tb.closest("table").scrollIntoView({behavior:"smooth",block:"start"});}catch(e){}
@@ -3691,12 +3809,96 @@
       linha.click(); e.preventDefault();
     }
   });
+
+  /* ================= cartões clicáveis: cada número leva aos dados que o compõem ================= */
+  // o: {conta, mes, tipo ("e" entradas / "s" saídas / ""), mov ("1" só o que entra no total · "b" como no banco), origem, alvo (seletor), dica}
+  function ir(o){
+    let a=' data-ir="1" role="button" tabindex="0" title="'+esc(o.dica||"Ver detalhes")+'"';
+    ["conta","mes","tipo","origem","alvo"].forEach(k=>{ if(o[k]!=null) a+=' data-ir-'+k+'="'+esc(o[k])+'"'; });
+    if(o.mov) a+=' data-ir-mov="'+esc(o.mov)+'"';
+    return a;
+  }
+  function irPara(el){
+    const d=el.dataset, conta=d.irConta||ui.conta;
+    const lanc=["cpf","pj","bcpf","bpj","todas"].includes(conta);
+    if(conta!==ui.conta){ ui.conta=conta; ui.view="mes"; }
+    if(d.irMes){ if(conta==="prev") ui.prevMes=d.irMes; else ui.mes=d.irMes; }
+    if(lanc && d.irTipo!=null){
+      ui.view="mes"; ui.busca=""; ui.cat=""; ui.vinculo=""; ui.fat=""; ui.errada="";
+      ui.origem=d.irOrigem||""; ui.tipo=d.irTipo; ui.soMov=d.irMov||"";
+    }
+    render();
+    if(lanc && d.irMes && d.irMes!=="tudo" && ui.mes!==d.irMes) avisar("Esta conta não tem lançamentos em "+rotuloMes(d.irMes)+"; mostrando "+(ui.mes==="tudo"?"todos os meses":rotuloMes(ui.mes))+".");
+    const alvo=d.irAlvo||(lanc?"#tabelaLanc":null);
+    setTimeout(()=>{
+      const t=alvo&&document.querySelector(alvo);
+      if(t){ t.scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(cxAjustar,500); }
+      else window.scrollTo({top:0,behavior:"smooth"});
+    },40);
+  }
+  $("#corpo").addEventListener("click",e=>{
+    if(e.target.closest("button,input,select,a,textarea")) return;
+    const c=e.target.closest("[data-ir]"); if(c) irPara(c);
+  });
+  $("#corpo").addEventListener("keydown",e=>{
+    if(e.key!=="Enter"&&e.key!==" ") return;
+    const c=e.target.closest("[data-ir]"); if(c&&e.target===c){ e.preventDefault(); irPara(c); }
+  });
+
+  /* ================= caixas com barra de rolagem: altura da tela, posição guardada, navegação por mês ================= */
+  const cxChave = c => [ui.conta,ui.view,ui.mes,ui.cat,ui.tipo,ui.vinculo,ui.origem,ui.fat,ui.errada,ui.soMov,ui.busca].join("|")+"#"+c.dataset.cx;
+  // a caixa nasce abaixo da dobra? então considera que ela será rolada até o topo (altura ≈ tela inteira)
+  function cxAjustar(){
+    document.querySelectorAll("#corpo .fx-caixa[data-cx]").forEach(c=>{
+      const topo=c.getBoundingClientRect().top, h=window.innerHeight;
+      const livre = topo>=h-340 ? h-150 : h-Math.max(topo,0)-16;
+      c.style.maxHeight=Math.max(320,livre)+"px";
+    });
+  }
+  function cxPreparar(){
+    document.querySelectorAll("#corpo .fx-caixa[data-cx]").forEach(c=>{
+      if(c.dataset.pronto) return;
+      c.dataset.pronto="1";
+      if(c.dataset.meses){   // tabela de meses: ◀ Mês atual ▶
+        c.insertAdjacentHTML("beforebegin",'<div class="fx-nav cx-nav"><button data-cxn="-1" title="Uma coluna para trás">◀</button>'+
+          '<button data-cxn="0">Mês atual</button><button data-cxn="1" title="Uma coluna para frente">▶</button></div>');
+      }
+    });
+    cxAjustar();
+    document.querySelectorAll("#corpo .fx-caixa[data-cx]").forEach(c=>{
+      const pos=(ui._cxPos||{})[cxChave(c)];
+      if(pos){ c.scrollLeft=pos.l; c.scrollTop=pos.t; }
+      else if(c.dataset.meses) cxMesAtual(c,false);
+    });
+  }
+  function cxColuna(c){ const th=c.querySelectorAll("thead th"); return th[1]?th[1].offsetWidth:100; }
+  function cxMesAtual(c,suave){
+    const ths=[...c.querySelectorAll("thead th[data-m]")]; if(!ths.length) return;
+    const hoje=mesAtual(), alvo=ths.filter(t=>t.dataset.m<=hoje).pop()||ths[0];
+    const fixa=c.querySelector("thead th").offsetWidth;
+    c.scrollTo({left:Math.max(0,alvo.offsetLeft-fixa-cxColuna(c)),behavior:suave?"smooth":"auto"});
+  }
+  // guarda a posição de cada caixa (scroll não borbulha: captura no #corpo)
+  $("#corpo").addEventListener("scroll",e=>{
+    const c=e.target; if(!c||!c.classList||!c.classList.contains("fx-caixa")||!c.dataset.cx) return;
+    (ui._cxPos=ui._cxPos||{})[cxChave(c)]={l:c.scrollLeft,t:c.scrollTop};
+  },true);
+  $("#corpo").addEventListener("click",e=>{
+    const b=e.target.closest("[data-cxn]"); if(!b) return;
+    const nav=b.closest(".cx-nav"), c=nav&&nav.nextElementSibling; if(!c||!c.classList.contains("fx-caixa")) return;
+    const d=+b.dataset.cxn;
+    if(!d) cxMesAtual(c,true); else c.scrollBy({left:d*cxColuna(c),behavior:"smooth"});
+  });
+  // depois de cada desenho da tela: prepara as caixas (uma vez só) e devolve a posição da rolagem
+  new MutationObserver(()=>cxPreparar()).observe($("#corpo"),{childList:true});
+  window.addEventListener("resize",cxAjustar);
+
   // seletor de conta
   document.getElementById("contaTabs").addEventListener("click",e=>{
     const bt=e.target.closest(".conta-tab"); if(!bt) return;
     if(ui.conta==="dash"||bt.dataset.conta==="dash") ui.mes=null; // dashboard abre em "todos os meses"; contas abrem no mês atual
     ui.conta=bt.dataset.conta; ui.view="mes";
-    ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem=""; ui.fat=""; ui.errada="";
+    ui.busca=""; ui.cat=""; ui.tipo=""; ui.vinculo=""; ui.origem=""; ui.fat=""; ui.errada=""; ui.soMov="";
     render();
   });
 
@@ -3758,6 +3960,7 @@
   $("#btImportar").onclick=()=>$("#arqCsv").click();
   $("#arqCsv").onchange=e=>{ if(e.target.files[0]) lerArquivo(e.target.files[0]); e.target.value=""; };
   $("#btBackup").onclick=exportarBackup;
+  $("#btBackupsNuvem").onclick=abrirBackupsNuvem;
   $("#btExportar").onclick=exportarCSV;
   $("#btLimpar").onclick=()=>{
     modal(
@@ -3777,6 +3980,7 @@
       dados.faturaAberta=null; dados.faturaFechada=null;
       dados.metas=normMetas();
       ui={mes:null,view:"mes",busca:"",cat:"",tipo:"",vinculo:"",sortCol:"data",sortDir:1,conta:ui.conta||"dash"};
+      permitirVazio = true;
       salvar(); render();
       avisar("Histórico apagado. Importe os extratos novamente.");
     });
@@ -3795,25 +3999,18 @@
 
     if(event==="SIGNED_IN" && !eraLogado){
       // verificar se há dados no Supabase
-      const remoto = await sbCarregar().catch(()=>null);
-      if(!remoto && dados.lancamentos.length>0){
+      const remoto = await sbCarregar().catch(()=>"erro");
+      if(remoto==="erro"){
+        bloqueioGravar = true;
+        avisar("Não consegui carregar seus dados da nuvem. Gravação pausada: recarregue a página.",true);
+      } else if(!remoto && dados.lancamentos.length>0){
         // migrar dados locais para o Supabase
         await salvarImediato();
         avisar("Dados migrados para a nuvem. Agora sincronizados em qualquer dispositivo.");
       } else if(remoto){
         // carregar dados do Supabase (podem ser mais recentes)
-        dados.lancamentos = remoto.lancamentos||[];
-        dados.saldos      = remoto.saldos||{};
-        dados.regras      = (remoto.regras&&remoto.regras.length)?remoto.regras:REGRAS_PADRAO.slice();
-        dados.prolabore   = remoto.prolabore||0;
-        dados.faturaAberta = remoto.faturaAberta||null;
-        dados.faturaFechada= remoto.faturaFechada||null;
-        dados.metas       = normMetas(remoto.metas);
-        dados.whatsapp    = remoto.whatsapp||{numero:""};
-        dados.previsoes   = normPrev(remoto.previsoes);
-        dados.saldosDia   = remoto.saldosDia||{};
-        dados.fluxoPJ     = normFluxoPJ(remoto.fluxoPJ);
-        migrar();
+        aplicarDados(remoto);
+        bloqueioGravar = false; nCarregados = dados.lancamentos.length;
         render();
         avisar("Dados carregados da nuvem.");
       }
