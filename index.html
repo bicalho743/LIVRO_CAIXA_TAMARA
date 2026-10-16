@@ -691,6 +691,9 @@
   .ir-sub small{color:var(--cinza)}
   .ir-lt{margin-top:6px;font-size:12px;color:var(--cinza);text-align:right}
   @media(max-width:640px){.ir-cmp,.ir-cmp tr,.ir-cmp td{display:block;width:auto;margin:0 0 8px}}
+  .ir-pl th{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--cinza);text-align:right;padding:4px 8px;border-bottom:1px solid var(--linha)}
+  .ir-pl th:first-child{text-align:left}.ir-pl td{text-align:right!important;font-family:var(--sans)!important;font-size:12.5px!important;white-space:nowrap}
+  .ir-pl td.d{text-align:left!important}.ir-pl tr.t td{font-weight:600;border-top:1px solid var(--linha)}
 </style>
 
 <div id="telaLogin">
@@ -2792,7 +2795,14 @@
     let desp=-s(L.filter(l=>l.valor<0&&!ehRetirada(l)));
     let ret=-s(L.filter(ehRetirada));
     const hoje=new Date(), f=(proj&&String(hoje.getFullYear())===IR_ANO)?12/(hoje.getMonth()+1):1;
-    return {serv:serv*f,prod:prod*f,desp:desp*f,ret:ret*f,fator:f,n:L.length,
+    // pró-labore apurado mês a mês = receita − despesas do negócio (dinheiro recebido no CPF ou no CNPJ que sobrou para a titular)
+    const mm={};
+    L.forEach(l=>{ const m=l.data.slice(0,7), r=mm[m]||(mm[m]={m:m,rec:0,desp:0,ret:0});
+      if(l.valor>0&&(l.categoria==="Receita de cliente"||l.categoria==="Produtos para venda")) r.rec+=l.valor;
+      else if(ehRetirada(l)) r.ret-=l.valor;
+      else if(l.valor<0) r.desp-=l.valor; });
+    const meses=Object.keys(mm).sort().map(k=>{ const r=mm[k]; r.pl=r2(r.rec-r.desp); r.falta=r2(r.pl-r.ret); return r; });
+    return {meses:meses,serv:serv*f,prod:prod*f,desp:desp*f,ret:ret*f,fator:f,n:L.length,
       lServ:L.filter(l=>l.valor>0&&l.categoria==="Receita de cliente"),lProd:L.filter(l=>l.valor>0&&l.categoria==="Produtos para venda"),
       lDesp:L.filter(l=>l.valor<0&&!ehRetirada(l)),lRet:L.filter(ehRetirada)};
   }
@@ -2852,9 +2862,19 @@
       (ab?'<tr class="ir-dtl"><td colspan="2">'+detHtml+'</td></tr>':'');
   }
 
+  function irPlMeses(meses){
+    const T=meses.reduce((a,r)=>({rec:a.rec+r.rec,desp:a.desp+r.desp,pl:a.pl+r.pl,ret:a.ret+r.ret,falta:a.falta+r.falta}),{rec:0,desp:0,pl:0,ret:0,falta:0});
+    const nm=m=>MESES[+m.slice(5,7)-1].slice(0,3), c=v=>v<-0.004?' style="color:var(--tijolo)"':'';
+    return '<div class="ir-lista"><p class="sub" style="margin:0 0 6px">Pró-labore do mês = tudo o que entrou de clientes (no CPF ou no CNPJ) menos o que foi gasto no negócio. '+
+      'A coluna “já retirado” é o que já foi lançado como pró-labore (transferências CNPJ → CPF).</p><div class="ir-scroll"><table class="ir-tab ir-sub ir-pl"><thead><tr><th>Mês</th><th>Receita</th><th>Despesas</th><th>Pró-labore</th><th>Já retirado</th><th>Diferença</th></tr></thead><tbody>'+
+      meses.map(r=>'<tr><td class="d">'+nm(r.m)+'/'+r.m.slice(2,4)+'</td><td>'+brl(r.rec)+'</td><td>'+brl(r.desp)+'</td><td'+c(r.pl)+'><b>'+brl(r.pl)+'</b></td><td>'+brl(r.ret)+'</td><td'+c(r.falta)+'>'+brl(r.falta)+'</td></tr>').join("")+
+      '<tr class="t"><td>Total</td><td>'+brl(T.rec)+'</td><td>'+brl(T.desp)+'</td><td><b>'+brl(T.pl)+'</b></td><td>'+brl(T.ret)+'</td><td>'+brl(T.falta)+'</td></tr></tbody></table></div>'+
+      '<div class="ir-lt">Valores do ano, sem projeção. A diferença é o pró-labore que ficou na conta (CPF ou CNPJ) sem transferência lançada.</div></div>';
+  }
+
   function renderIRPF(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
-    const c0=irpfNorm(), mei=irpfMei(c0.proj);
+    const c0=irpfNorm(), mei=irpfMei(c0.proj); if(irOpen.plm===undefined) irOpen.plm=true;
     const itensS=irpfSaudeItens(c0), saudeLanc=itensS.filter(i=>i.sel).reduce((t,i)=>t+i.valor,0);
     const c=Object.assign({},c0,{saude:c0.saude+c0.unimed+saudeLanc}), R=irpfCalc(c,mei);
     $("#abas").innerHTML='<div class="periodo"><span class="sub" style="margin:0"><b>Imposto de Renda.</b> Simulação do IRPF do ano-base '+IR_ANO+
@@ -2889,6 +2909,7 @@
       lin("Receita bruta considerada",R.rec,"t")+
       irLinD("desp","(−) Despesas do negócio lançadas no app",mei.desp,irLista(irItensL(mei.lDesp),mei.fator>1?'Lançamentos reais; o valor acima está multiplicado pela projeção.':""))+
       lin("Lucro do MEI",R.lucro,"t")+
+      irLinD("plm","Pró-labore apurado no ano (receita − despesas, mês a mês)",mei.meses.reduce((t,r)=>t+r.pl,0),irPlMeses(mei.meses),"t")+
       irLinD("ret","Retiradas lançadas como pró-labore",mei.ret,irLista(irItensL(mei.lRet)))+lin("Valor considerado como distribuído à titular",R.distr)+
       lin("Isenção presumida (32% e 8% da receita)",R.pres)+
       lin("Parcela isenta (rendimento isento, código 13)",R.isento,"t")+
