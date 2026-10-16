@@ -2475,6 +2475,48 @@
     mapa[ym]=novo; ui.prevMes=ym; salvar(); render();
     avisar(cap(rotuloMes(ym))+" criado"+(ult?" a partir de "+rotuloMes(ult):"")+".");
   }
+  /* Preenche a Previsão da conta aberta, só com meses que ainda não existem (nada é sobrescrito).
+     Negócio: custos da Sala 5 (contrato assinado) + DAS nos 6 meses a partir de hoje.
+     Pessoal: média dos gastos dos 3 últimos meses fechados, por categoria, para os 2 próximos meses. */
+  async function pvEstimar(){
+    const conta=pvConta(), mapa=pvMapa(), hoje=hojeISO(), mAt=mesAtual();
+    const fim=ym=>{ const [a,m]=ym.split("-").map(Number); return ym+"-"+String(new Date(a,m,0).getDate()).padStart(2,"0"); };
+    const dia=(ym,d)=>{ const iso=ym+"-"+String(d).padStart(2,"0"); return (ym===mAt&&iso<hoje)?fim(ym):iso; };
+    const novos={};
+    if(conta==="pj"){
+      for(let k=0;k<6;k++){
+        const ym=somaMes(mAt,k); if(mapa[ym]) continue;
+        let saldo=0; if(k===0){ try{ saldo=Math.round(saldoBanco("pj")*100)/100; }catch(_){ } }
+        novos[ym]={saldo:saldo,saldoManual:false,receitas:[],
+          itens:[{data:dia(ym,10),d:"Casa Original — contraprestação da Sala 5 (Cl. 4.1; confirmar vencimento)",aPagar:-2200,pago:null},
+                 {data:dia(ym,10),d:"Casa Original — condomínio fixo (Cl. 5.5, teto R$ 700)",aPagar:-300,pago:null},
+                 {data:dia(ym,20),d:"DAS MEI",aPagar:-IR_DAS_MEI,pago:null}],
+          notas:k===0?[{d:"Sala 5: custo fixo R$ 2.500/mês (R$ 30.000/ano). Cobrir só com projetos exige ~R$ 4.545/mês de faturamento (margem de 55%). Campanhas são facultativas (R$ 0).",v:0},
+                       {d:"Comissão de indicação (10%, Cl. 9.2) é variável e recíproca: não entra na previsão.",v:0}]:[]};
+      }
+    }else{
+      const ms=[1,2,3].map(n=>mesAnterior(mAt,n)), soma={}, ignora=new Set(["Sem categoria","Transferência enviada",CAT_PL]);
+      ms.forEach(m=>{ const g=gastosMes("cpf",m); Object.keys(g).forEach(c=>{ if(!ignora.has(c)) soma[c]=(soma[c]||0)+g[c]; }); });
+      const med=Object.keys(soma).map(c=>[c,Math.round(soma[c]/3)]).filter(x=>x[1]>=5).sort((a,b)=>b[1]-a[1]);
+      if(!med.length){ avisar("Não há gastos pessoais nos últimos 3 meses para calcular a média.",true); return; }
+      const rot=abrevMes(ms[2])+" a "+abrevMes(ms[0]);
+      for(let k=1;k<=2;k++){
+        const ym=somaMes(mAt,k); if(mapa[ym]) continue;
+        novos[ym]={saldo:0,saldoManual:false,receitas:[],
+          notas:[{d:"Estimativa: média mensal dos gastos pessoais de "+rot+" (sem cartão, aplicação e transferências entre contas). Ajuste conforme o mês.",v:0}],
+          itens:med.map(x=>({data:fim(ym),d:"Média "+rot+": "+x[0],aPagar:-x[1],pago:null}))};
+      }
+    }
+    const yms=Object.keys(novos).sort();
+    if(!yms.length){ avisar("Esses meses já existem na Previsão; nada foi alterado."); return; }
+    const ok=await confirmar("Preencher a Previsão — "+pvNome(conta)+"?",
+      "Vou criar "+yms.length+" mês"+(yms.length>1?"es":"")+" ("+yms.map(m=>esc(abrevMes(m))).join(", ")+") "+
+      (conta==="pj"?"com os custos da Sala 5 e o DAS.":"com a média dos gastos dos últimos 3 meses por categoria.")+" Meses que já existem não são alterados.","Preencher");
+    if(!ok) return;
+    yms.forEach(ym=>{ pvOrdenar(novos[ym]); mapa[ym]=novos[ym]; });
+    ui.prevMes=yms[0]; salvar(); render();
+    avisar(yms.length+" mês"+(yms.length>1?"es":"")+" preenchido"+(yms.length>1?"s":"")+" na Previsão.");
+  }
   function pvPassar(de){
     const ym=pvProxMes(de);
     if(pvMapa()[ym])
@@ -2505,7 +2547,9 @@
       (ui.prevMes?'<div class="prev-acoes">'+
         '<button class="bt vazado" data-pconferir="1" title="Marca como paga a conta que já aparece nos lançamentos">Conferir com o extrato</button>'+
         '<button class="bt vazado" data-ppassar="1">Passar para '+esc(rotuloMes(pvProxMes(ui.prevMes)))+' →</button>'+
-        '<button class="bt vazado" data-papagar="1">Apagar '+esc(rotuloMes(ui.prevMes))+'</button></div>':'');
+        '<button class="bt vazado" data-pest="1" title="Cria meses que ainda não existem com os custos conhecidos e a média dos gastos">Preencher com estimativas</button>'+
+        '<button class="bt vazado" data-papagar="1">Apagar '+esc(rotuloMes(ui.prevMes))+'</button></div>'
+        :'<div class="prev-acoes"><button class="bt" data-pest="1">Preencher com estimativas</button></div>');
     if(!ui.prevMes){
       corpo.innerHTML='<div class="vazio"><p class="num">Nenhuma previsão em '+esc(pvNome(conta))+' ainda</p>'+
         '<p>Clique em <b>+ Novo mês</b> e lance o que você espera pagar e receber. '+
@@ -4467,6 +4511,7 @@
     const m=e.target.closest("[data-pmes]");
     if(m){ ui.prevMes=m.dataset.pmes; render(); return; }
     if(e.target.closest("[data-pnovo]")){ pvNovoMes(); return; }
+    if(e.target.closest("[data-pest]")){ pvEstimar(); return; }
     if(e.target.closest("[data-ppassar]")){ pvPassar(ui.prevMes); return; }
     if(e.target.closest("[data-pconferir]")){
       const n=pvConferir();
