@@ -2483,16 +2483,38 @@
     const fim=ym=>{ const [a,m]=ym.split("-").map(Number); return ym+"-"+String(new Date(a,m,0).getDate()).padStart(2,"0"); };
     const dia=(ym,d)=>{ const iso=ym+"-"+String(d).padStart(2,"0"); return (ym===mAt&&iso<hoje)?fim(ym):iso; };
     const novos={};
+    const reaisPJ={};   // meses existentes do Negócio que só recebem as linhas que faltam
     if(conta==="pj"){
+      // média dos 3 últimos meses fechados: pró-labore (retiradas) e demais custos do negócio
+      const ms=[1,2,3].map(n=>mesAnterior(mAt,n)), rot=abrevMes(ms[2])+" a "+abrevMes(ms[0]);
+      const ret=dados.lancamentos.filter(l=>!l.ignorado&&ehRetirada(l)&&ms.includes(l.data.slice(0,7))).reduce((t,l)=>t-l.valor,0);
+      const soma={}, ignora=new Set(["Sem categoria","Transferência enviada","Impostos e taxas","Marketing","Aluguel de sala",CAT_PL]);
+      ms.forEach(m=>{ const g=gastosMes("pj",m); Object.keys(g).forEach(c=>{ if(!ignora.has(c)) soma[c]=(soma[c]||0)+g[c]; }); });
+      const med=Object.keys(soma).map(c=>[c,Math.round(soma[c]/3)]).filter(x=>x[1]>=5).sort((a,b)=>b[1]-a[1]);
+      const linhasPJ=ym=>{
+        const L=[
+          {data:dia(ym,10),d:"Casa Original — contraprestação da Sala 5 (Cl. 4.1; confirmar vencimento)",aPagar:-2200},
+          {data:dia(ym,10),d:"Casa Original — condomínio fixo (Cl. 5.5, teto R$ 700)",aPagar:-300},
+          {data:dia(ym,20),d:"DAS MEI (já inclui o INSS de R$ "+brl(IR_INSS_MEI)+")",aPagar:-IR_DAS_MEI},
+          {data:dia(ym,10),d:"Contador — honorário mensal",aPagar:-600},
+          {data:dia(ym,5),d:"Mídia — anúncios e redes sociais",aPagar:-700}];
+        if(ret>0) L.push({data:dia(ym,10),d:"Pró-labore (retirada) — média "+rot,aPagar:-Math.round(ret/3)});
+        med.forEach(x=>L.push({data:dia(ym,x[0]==="Serviços do negócio"?15:25),
+          d:(x[0]==="Serviços do negócio"?"Equipe e fornecedores":x[0])+" — média "+rot,aPagar:-x[1]}));
+        return L.map(i=>Object.assign({pago:null,est:1},i));
+      };
+      const ehEst=i=>i.est||/^Casa Original — /.test(i.d||"")||/^DAS MEI/.test(i.d||"");
       for(let k=0;k<6;k++){
-        const ym=somaMes(mAt,k); if(mapa[ym]) continue;
+        const ym=somaMes(mAt,k);
+        if(mapa[ym]){
+          const velhos=(mapa[ym].itens||[]).filter(i=>ehEst(i)&&i.pago==null);
+          if(velhos.length) reaisPJ[ym]=linhasPJ(ym);
+          continue;
+        }
         let saldo=0; if(k===0){ try{ saldo=Math.round(saldoBanco("pj")*100)/100; }catch(_){ } }
-        novos[ym]={saldo:saldo,saldoManual:false,receitas:[],
-          itens:[{data:dia(ym,10),d:"Casa Original — contraprestação da Sala 5 (Cl. 4.1; confirmar vencimento)",aPagar:-2200,pago:null},
-                 {data:dia(ym,10),d:"Casa Original — condomínio fixo (Cl. 5.5, teto R$ 700)",aPagar:-300,pago:null},
-                 {data:dia(ym,20),d:"DAS MEI",aPagar:-IR_DAS_MEI,pago:null}],
-          notas:k===0?[{d:"Sala 5: custo fixo R$ 2.500/mês (R$ 30.000/ano). Cobrir só com projetos exige ~R$ 4.545/mês de faturamento (margem de 55%). Campanhas são facultativas (R$ 0).",v:0},
-                       {d:"Comissão de indicação (10%, Cl. 9.2) é variável e recíproca: não entra na previsão.",v:0}]:[]};
+        novos[ym]={saldo:saldo,saldoManual:false,receitas:[],itens:linhasPJ(ym),
+          notas:k===0?[{d:"Custos do Negócio: Sala 5 (R$ 2.500/mês), DAS com INSS, contador, mídia, pró-labore e demais custos pela média de "+rot+". Pró-labore e equipe variam com o faturamento: ajuste.",v:0},
+                       {d:"Sala 5: cobrir só com projetos exige ~R$ 4.545/mês de faturamento (margem de 55%). Campanhas são facultativas. A comissão de indicação (10%, Cl. 9.2) é variável: não entra.",v:0}]:[]};
       }
     }else{
       const ms=[1,2,3].map(n=>mesAnterior(mAt,n)), soma={}, ignora=new Set(["Sem categoria","Transferência enviada",CAT_PL]);
@@ -2507,15 +2529,18 @@
           itens:med.map(x=>({data:fim(ym),d:"Média "+rot+": "+x[0],aPagar:-x[1],pago:null}))};
       }
     }
+    const atual=Object.keys(reaisPJ).sort();
     const yms=Object.keys(novos).sort();
-    if(!yms.length){ avisar("Esses meses já existem na Previsão; nada foi alterado."); return; }
+    if(!yms.length&&!atual.length){ avisar("Esses meses já existem na Previsão; nada foi alterado."); return; }
     const ok=await confirmar("Preencher a Previsão — "+pvNome(conta)+"?",
-      "Vou criar "+yms.length+" mês"+(yms.length>1?"es":"")+" ("+yms.map(m=>esc(abrevMes(m))).join(", ")+") "+
-      (conta==="pj"?"com os custos da Sala 5 e o DAS.":"com a média dos gastos dos últimos 3 meses por categoria.")+" Meses que já existem não são alterados.","Preencher");
+      (yms.length?"Vou criar "+yms.length+(yms.length>1?" meses":" mês")+" ("+yms.map(m=>esc(abrevMes(m))).join(", ")+") ":"")+
+      (atual.length?(yms.length?"e atualizar":"Vou atualizar")+" as linhas de estimativa de "+atual.map(m=>esc(abrevMes(m))).join(", ")+" (suas outras linhas e valores pagos ficam como estão). ":"")+
+      (conta==="pj"?"Entram Sala 5, DAS com INSS, contador, mídia, pró-labore e demais custos pela média.":"Entra a média dos gastos dos últimos 3 meses por categoria.")+" Meses já preenchidos, com linhas suas, não são sobrescritos.","Preencher");
     if(!ok) return;
     yms.forEach(ym=>{ pvOrdenar(novos[ym]); mapa[ym]=novos[ym]; });
-    ui.prevMes=yms[0]; salvar(); render();
-    avisar(yms.length+" mês"+(yms.length>1?"es":"")+" preenchido"+(yms.length>1?"s":"")+" na Previsão.");
+    atual.forEach(ym=>{ const p=mapa[ym]; p.itens=(p.itens||[]).filter(i=>!((i.est||/^Casa Original — /.test(i.d||"")||/^DAS MEI/.test(i.d||""))&&i.pago==null)).concat(reaisPJ[ym]); pvOrdenar(p); });
+    ui.prevMes=(yms[0]||atual[0]); salvar(); render();
+    avisar(((yms.length+atual.length)>1?(yms.length+atual.length)+" meses preenchidos":"1 mês preenchido")+" na Previsão.");
   }
   function pvPassar(de){
     const ym=pvProxMes(de);
