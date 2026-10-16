@@ -606,6 +606,17 @@
   /* ---- fluxo do CNPJ ---- */
   .conta-tab[data-conta=fluxo].ativa{color:#0E7490;border-bottom-color:#0E7490}
   .conta-tab[data-conta=irpf].ativa{color:#785E28;border-bottom-color:#785E28}
+  .conta-tab[data-conta=div].ativa{color:#8E3B46;border-bottom-color:#8E3B46}
+  .conta-tab[data-conta=cai].ativa{color:#0E8A7D;border-bottom-color:#0E8A7D}
+  .dv-cards{display:flex;gap:10px;flex-wrap:wrap}
+  .dv-card{border:1px solid var(--linha);border-top:3px solid var(--linha);border-radius:4px;padding:10px 14px;background:#fff;min-width:150px}
+  .dv-rot{font-size:12px;color:var(--suave,#777)}.dv-val{font-family:var(--serif);font-size:24px;font-weight:500}.dv-sub{font-size:12px;color:var(--suave,#777)}
+  .dv-tab{width:100%;border-collapse:collapse;background:#fff}
+  .dv-tab th,.dv-tab td{padding:8px 10px;border-bottom:1px solid var(--linha-clara,#eee);text-align:left;font-size:14px;vertical-align:middle}
+  .dv-tab th{font-size:12px;font-weight:500;color:var(--suave,#777)}.dv-tab .n{text-align:right;white-space:nowrap}
+  .dv-acoes{display:flex;gap:6px;flex-wrap:wrap}.dv-acoes .bt{padding:6px 10px;font-size:12px}
+  .cai-val{font-family:var(--serif);font-size:26px;margin:8px 0 6px}.cai-val small{font-size:13px;color:var(--suave,#777);font-family:var(--sans)}
+  .ir-busca td,.ir-busca th{font-size:13px}
   .fx-nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   .fx-nav button{border:1px solid var(--linha);background:#fff;padding:6px 12px;border-radius:3px;font-size:13px;color:var(--tinta)}
   .fx-nav button:hover{border-color:var(--verde);color:var(--verde)}
@@ -722,7 +733,7 @@
       <div class="menu-wrap">
         <button class="bt" id="btImportarMenu" aria-haspopup="true" aria-expanded="false">Importar ▾</button>
         <div class="menu" id="menuImportar" hidden>
-          <button id="btImportar">Extrato do BB (CSV ou Excel)</button>
+          <button id="btImportar">Extrato (CSV, Excel ou OFX)</button>
           <button id="btImportarPDF">Fatura do cartão (PDF)</button>
         </div>
       </div>
@@ -739,7 +750,7 @@
         </div>
       </div>
       <div id="barraUsuario"></div>
-      <input type="file" id="arqCsv" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+      <input type="file" id="arqCsv" accept=".csv,.xlsx,.xls,.ofx,.qfx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
       <input type="file" id="arqPdf" accept=".pdf,application/pdf" hidden>
       <input type="file" id="arqJson" accept=".json,application/json" hidden>
     </div>
@@ -752,6 +763,8 @@
     <button class="conta-tab" data-conta="prev">Previsão do mês</button>
     <button class="conta-tab" data-conta="fluxo">Fluxo CNPJ</button>
     <button class="conta-tab" data-conta="irpf">Imposto de Renda</button>
+    <button class="conta-tab" data-conta="div">Dívidas e parcelas</button>
+    <button class="conta-tab" data-conta="cai">Caixinhas</button>
     <span class="conta-sep">Conferir com o extrato:</span>
     <button class="conta-tab banco" data-conta="bcpf">Conta CPF</button>
     <button class="conta-tab banco" data-conta="bpj">Conta CNPJ</button>
@@ -849,13 +862,14 @@
   const CATS_PJ = new Set([
     "Receita de cliente","Reembolso e estorno","Rendimento","Transferência recebida",
     "Produtos para venda","Pró-labore (retirada MEI)","Material de trabalho","Marketing","Transferência entre minhas contas",
-    "Serviços do negócio","Compras físicas","Compras online","Assinaturas digitais",
+    "Serviços do negócio","Aluguel de sala","Compras físicas","Compras online","Assinaturas digitais",
     "Telefone e internet","Transporte","Impostos e taxas","Juros e IOF",
     "Seguros","Aplicação e resgate","Transferência enviada","Sem categoria"
   ]);
   const CATS_PF = new Set([
     "Alimentação fora","Aplicação e resgate","Assinaturas digitais","Cartão de crédito","Casa e manutenção",
     "Compras físicas","Compras online","Estética e cuidados","Farmácia",
+    "Academia","Despesas diversas","Gasolina","Salão e beleza","Suplementos",
     "Juros e IOF","Lazer e entretenimento","Mercado e padaria",
     "Gastos meninas","Presentes e doações","Pró-labore (retirada MEI)","Reembolso e estorno","Transferência entre minhas contas",
     "Seguros","Telefone e internet","Transporte","Transferência enviada",
@@ -869,6 +883,7 @@
   }
 
   const CATEGORIAS = [
+    "Academia","Aluguel de sala","Despesas diversas","Gasolina","Salão e beleza","Suplementos",
     "Alimentação fora","Aplicação e resgate","Assinaturas digitais","Cartão de crédito","Casa e manutenção","Compras físicas","Compras online","Estética e cuidados","Farmácia","Gastos meninas","Impostos e taxas","Juros e IOF","Lazer e entretenimento","Marketing","Material de trabalho","Mercado e padaria","Produtos para venda","Presentes e doações","Pró-labore (retirada MEI)","Receita de cliente","Reembolso e estorno","Rendimento","Seguros","Serviços do negócio","Telefone e internet","Transporte","Transferência entre minhas contas","Transferência enviada","Transferência família","Transferência recebida","Vestuário e acessórios","Sem categoria"
   ];
 
@@ -877,6 +892,7 @@
     "Rendimento":"#0FA36B","Transferência recebida":"#16A085",
     "Mercado e padaria":"#E08E0B","Alimentação fora":"#E85D2C",
     "Farmácia":"#2E86DE","Estética e cuidados":"#D6336C",
+    "Salão e beleza":"#C2185B","Gasolina":"#00838F","Academia":"#43A047","Suplementos":"#F9A825","Despesas diversas":"#78909C","Aluguel de sala":"#5D4037",
     "Casa e manutenção":"#6C7A3B","Transporte":"#0B8793",
     "Material de trabalho":"#B8860B","Marketing":"#EF6C00","Serviços do negócio":"#5B4FCF",
     "Compras online":"#9B59B6","Cartão de crédito":"#D63031",
@@ -906,10 +922,12 @@
     ["LANCHES","Alimentação fora","PF"],["CHEIRIN","Alimentação fora","PF"],
     ["GRILL","Alimentação fora","PF"],
     ["PAPELARIA","Material de trabalho","PJ"],["LIVRARIA","Material de trabalho","PJ"],
-    ["ESMALTERIA","Estética e cuidados","PF"],["QUIOSQUE","Estética e cuidados","PF"],
-    ["ARENA FIT","Estética e cuidados","PF"],["ACADEMIA","Estética e cuidados","PF"],
+    ["ESMALTERIA","Salão e beleza","PF"],["SALAO","Salão e beleza","PF"],["BEAUTY","Salão e beleza","PF"],["QUIOSQUE","Estética e cuidados","PF"],
+    ["ARENA FIT","Academia","PF"],["ACADEMIA","Academia","PF"],["SMART FIT","Academia","PF"],
+    ["SUPLEMENT","Suplementos","PF"],["GROWTH","Suplementos","PF"],["MAX TITANIUM","Suplementos","PF"],
+    ["POSTO","Gasolina","PF"],["COMBUST","Gasolina","PF"],["CASA ORIGINAL","Aluguel de sala","PJ"],
     ["DESENTUPIDORA","Casa e manutenção","PF"],
-    ["ESTACIONAMENTO","Transporte","PF"],["AUTO POSTO","Transporte","PF"],["IPIRANGA","Transporte","PF"],
+    ["ESTACIONAMENTO","Transporte","PF"],["AUTO POSTO","Gasolina","PF"],["IPIRANGA","Gasolina","PF"],
     ["UBER","Transporte","PF"],["99POP","Transporte","PF"],
     ["HOTMART","Serviços do negócio","PJ"],["CAPPTA","Serviços do negócio","PJ"],
     ["MEEP","Compras online","PF"],["MARKETPLACE","Compras online","PF"],
@@ -944,7 +962,7 @@
   ].map(r=>({termo:r[0],categoria:r[1],vinculo:r[2],padrao:true}));
 
   /* ================= estado ================= */
-  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{},metas:{cpf:{},pj:{},faturamento:0},whatsapp:{numero:""},previsoes:{cpf:{},pj:{}},saldosDia:{},fluxoPJ:null};
+  let dados = {lancamentos:[],regras:REGRAS_PADRAO.slice(),saldos:{},metas:{cpf:{},pj:{},faturamento:0},whatsapp:{numero:""},previsoes:{cpf:{},pj:{}},saldosDia:{},fluxoPJ:null,dividas:[],caixinhas:[]};
   let ui = {mes:null,view:"mes",busca:"",cat:"",tipo:"",vinculo:"",sortCol:"data",sortDir:1,_contaAtual:"pf",conta:"dash"};
 
   /* O que NÃO é gasto nem receita:
@@ -1398,6 +1416,8 @@
     dados.saldosDia   = d.saldosDia||{};
     dados.fluxoPJ     = normFluxoPJ(d.fluxoPJ);
     dados.irpf        = d.irpf||null;
+    dados.dividas     = Array.isArray(d.dividas)?d.dividas:[];
+    dados.caixinhas   = Array.isArray(d.caixinhas)?d.caixinhas:[];
     migrar();
     dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
   }
@@ -1642,6 +1662,27 @@
   }
 
   function lerArquivo(arq){
+    if(/\.(ofx|qfx)$/i.test(arq.name)){
+      perguntarConta(conta=>{
+        const fr=new FileReader();
+        fr.onload=()=>{
+          let texto;
+          try{ texto=new TextDecoder("utf-8",{fatal:true}).decode(fr.result); }
+          catch(e){ texto=new TextDecoder("iso-8859-1").decode(fr.result); }
+          const r=importarOFX(texto,conta);
+          if(r.erro){ avisar(r.erro,true); return; }
+          if(r.meses&&r.meses.length){ ui.mes=r.meses.sort().pop(); ui.view="mes"; }
+          salvar(); render();
+          avisar(r.novos+" lançamento"+(r.novos===1?"":"s")+" importado"+(r.novos===1?"":"s")+" do OFX"+
+                 (r.novos?" · "+r.prontos+" já classificado"+(r.prontos===1?"":"s"):"")+
+                 (r.repetidos?" · "+r.repetidos+" já estava"+(r.repetidos===1?"":"m")+" aqui (sem duplicar)":"")+
+                 (r.saldoFim?" · saldo do banco: R$ "+brl(r.saldoFim.valor):""));
+        };
+        fr.onerror=()=>avisar("Não consegui abrir esse arquivo.",true);
+        fr.readAsArrayBuffer(arq);
+      });
+      return;
+    }
     if(arq.name.toLowerCase().endsWith('.xlsx')||arq.name.toLowerCase().endsWith('.xls')){
       perguntarConta(conta=>{ ui._contaAtual=conta; lerArquivoXLSX(arq); });
       return;
@@ -1934,12 +1975,13 @@
     const idsUsados = new Set(dados.lancamentos.map(l=>l.id));
     let novos=0, repetidos=0, prontos=0;
     const mesesTocados = new Set();
+    const casados = new Set();
 
     lancamentos.forEach(l=>{
       const k = l.data+"|"+l.valor.toFixed(2);
       const cand = livres.get(k)||[];
       const i = cand.findIndex(x=>parecido(x.hist,l.hist));
-      if(i>=0){ cand.splice(i,1); repetidos++; return; }
+      if(i>=0){ casados.add(cand[i]); cand.splice(i,1); repetidos++; return; }
       const base = l.data+"|cartao|"+l.valor.toFixed(2)+"|"+l.hist.slice(0,42);
       let id = base, n = 2;
       while(idsUsados.has(id)) id = base+"#"+(n++);
@@ -1949,8 +1991,9 @@
         c = {categoria:"Reembolso e estorno", vinculo:"PF"};
       }
       if(c.categoria!=="Sem categoria") prontos++;
-      dados.lancamentos.push({id, data:l.data, hist:l.hist, valor:l.valor,
-        doc:l.doc, categoria:c.categoria, vinculo:c.vinculo, obs:"", origem:"cartao"});
+      const novoL={id, data:l.data, hist:l.hist, valor:l.valor,
+        doc:l.doc, categoria:c.categoria, vinculo:c.vinculo, obs:"", origem:"cartao"};
+      dados.lancamentos.push(novoL); casados.add(novoL);
       idsUsados.add(id); novos++;
       mesesTocados.add(l.data.slice(0,7));
     });
@@ -1962,6 +2005,30 @@
            (novos?" · "+prontos+" já classificado"+(prontos===1?"":"s"):"")+
            (repetidos?" · "+repetidos+" já existia"+(repetidos===1?"":"m"):"")+
            (ehAberta?" · fatura em aberto: R$ "+brl(somaAberta)+(pendTotal?" (+ R$ "+brl(pendTotal)+" em processamento)":""):""));
+    try{ conciliarFatura(lancamentos,casados,{ehAberta:ehAberta,total:(!ehAberta&&mFecha&&dados.faturaFechada)?dados.faturaFechada.total:null,cartao:cartao}); }catch(e){ console.error(e); }
+  }
+  /* Conciliação: o que a fatura (PDF) traz × o que o app tem no cartão no mesmo período. */
+  function conciliarFatura(itens,casados,info){
+    const datas=itens.map(l=>l.data).sort(), de=datas[0], ate=datas[datas.length-1];
+    const compras=-itens.reduce((s,l)=>s+l.valor,0);
+    const sobra=dados.lancamentos.filter(l=>l.origem==="cartao"&&!l.ignorado&&l.data>=de&&l.data<=ate&&!casados.has(l)).sort((a,b)=>a.data<b.data?-1:1);
+    const dif=info.total!=null?Math.round((info.total-compras)*100)/100:null;
+    const dm=iso=>iso.slice(8,10)+"/"+iso.slice(5,7);
+    const apps=dados.lancamentos.filter(l=>l.origem==="cartao"&&!l.ignorado&&l.data>=de&&l.data<=ate).reduce((s,l)=>s-l.valor,0);
+    const ok=!sobra.length&&(dif===null||Math.abs(dif)<0.05);
+    modal('<h3 class="modal-tit">Conciliação da fatura'+(info.cartao&&info.cartao!=="Cartão"?' · '+esc(info.cartao):'')+'</h3>'+
+      '<p class="modal-corpo" style="margin-bottom:8px">Período das compras: '+dm(de)+' a '+dm(ate)+'.</p>'+
+      '<table class="dv-tab"><tbody>'+
+      '<tr><td>Compras na fatura (PDF)</td><td class="n">R$ '+brl(compras)+'</td></tr>'+
+      '<tr><td>Cartão no app, no mesmo período</td><td class="n">R$ '+brl(apps)+'</td></tr>'+
+      (info.total!=null?'<tr><td>Total da fatura fechada (com encargos/saldo anterior)</td><td class="n">R$ '+brl(info.total)+'</td></tr>'+
+        '<tr><td><b>Diferença entre o total da fatura e as compras</b></td><td class="n"><b>R$ '+brl(dif)+'</b></td></tr>':'')+
+      '</tbody></table>'+
+      (ok?'<p class="modal-corpo" style="margin-top:10px"><b>Tudo conferido:</b> cada compra da fatura está no app e não há nada sobrando.</p>'
+        :(sobra.length?'<p class="modal-corpo" style="margin:10px 0 4px"><b>'+sobra.length+' lançamento'+(sobra.length>1?'s':'')+' do app que não aparece'+(sobra.length>1?'m':'')+' na fatura</b> (compra de outro ciclo, lançamento manual, duplicado ou já estornado) — confira:</p>'+
+          '<div style="max-height:200px;overflow:auto"><table class="dv-tab"><tbody>'+sobra.map(l=>'<tr><td>'+dm(l.data)+'</td><td>'+esc(l.hist)+'</td><td class="n">R$ '+brl(l.valor)+'</td></tr>').join("")+'</tbody></table></div>':'')+
+          (dif!==null&&Math.abs(dif)>=0.05?'<p class="modal-corpo" style="margin-top:8px">A diferença com o total pode ser juros, IOF, anuidade, saldo de fatura anterior ou compra que o PDF não trouxe.</p>':''))+
+      '<div class="modal-acoes" style="margin-top:12px"><button class="bt" data-modal="cancelar">Fechar</button></div>');
   }
   function barraFatura(){
     const a=dados.faturaAberta, f=dados.faturaFechada;
@@ -2208,6 +2275,8 @@
         if(d.saldosDia) ["pf","pj"].forEach(o=>{ dados.saldosDia[o]=Object.assign({},(d.saldosDia[o]||{}),(dados.saldosDia[o]||{})); });
         if(Array.isArray(d.regras)&&d.regras.length) dados.regras=d.regras;
         if(d.metas) dados.metas=normMetas(d.metas);
+        if(Array.isArray(d.dividas)&&!dados.dividas.length) dados.dividas=d.dividas;
+        if(Array.isArray(d.caixinhas)&&!dados.caixinhas.length) dados.caixinhas=d.caixinhas;
         if(d.previsoes){ const pn=normPrev(d.previsoes); ["cpf","pj"].forEach(c=>Object.keys(pn[c]).forEach(ym=>{ if(!dados.previsoes[c][ym]) dados.previsoes[c][ym]=pn[c][ym]; })); }
         dados.lancamentos.sort((a,b)=>a.data<b.data?-1:1);
         salvar(); render();
@@ -2867,6 +2936,21 @@
       (ab?'<tr class="ir-dtl"><td colspan="2">'+detHtml+'</td></tr>':'');
   }
 
+  let irBuscaTxt="";
+  function copiarTexto(t){
+    const ok=()=>avisar("Copiado. Cole onde precisar.");
+    const alt=()=>{ const a=document.createElement("textarea"); a.value=t; a.style.position="fixed"; a.style.opacity="0"; document.body.appendChild(a); a.select(); try{ document.execCommand("copy"); ok(); }catch(_){ avisar("Não consegui copiar.",true); } a.remove(); };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok,alt); else alt();
+  }
+  function irBuscaHTML(q){
+    q=String(q||"").trim().toLowerCase();
+    if(q.length<2) return '<p class="sub" style="margin:8px 0 0">Digite ao menos 2 letras para procurar na descrição, categoria ou observação.</p>';
+    const L=dados.lancamentos.filter(l=>!l.ignorado&&l.data.slice(0,4)===IR_ANO&&(String(l.hist)+" "+(l.categoria||"")+" "+(l.obs||"")).toLowerCase().includes(q)).sort((a,b)=>a.data<b.data?-1:1);
+    if(!L.length) return '<p class="sub" style="margin:8px 0 0">Nada encontrado em '+IR_ANO+'.</p>';
+    const tot=L.reduce((t,l)=>t+l.valor,0);
+    return '<div class="ir-scroll" style="margin-top:8px"><table class="dv-tab ir-busca"><tbody>'+L.slice(0,80).map(l=>'<tr><td>'+l.data.split("-").reverse().join("/")+'</td><td>'+esc(irLimpaHist(l.hist))+' <small class="sub">'+esc(l.categoria||"")+' · '+esc(nomeOrigem(l))+'</small></td><td class="n" style="color:'+(l.valor<0?'#C0392B':'#1E8A5F')+'">R$ '+brl(l.valor)+'</td></tr>').join("")+'</tbody></table></div>'+
+      '<div class="ir-lt">'+L.length+' lançamento'+(L.length>1?'s':'')+(L.length>80?' (mostrando 80)':'')+' · saldo R$ '+brl(tot)+'</div>';
+  }
   function irPlMeses(meses){
     const T=meses.reduce((a,r)=>({rec:a.rec+r.rec,desp:a.desp+r.desp,pl:a.pl+r.pl}),{rec:0,desp:0,pl:0});
     const nm=m=>MESES[+m.slice(5,7)-1].slice(0,3), c=v=>v<-0.004?' style="color:var(--tijolo)"':'';
@@ -2966,10 +3050,26 @@
     h+='<section class="ir-card"><h3>5. Conferência do contador</h3><ul class="ir-conf">'+itens.join("")+'</ul><table class="ir-tab"><tbody>'+
       irLinD("fora","Entradas fora da receita (ver lançamentos)",mei.lFora.reduce((t,l)=>t+l.valor,0),irLista(irItensL(mei.lFora),"Confira se algum desses é pagamento de cliente."))+'</tbody></table></section>';
     h+='<p class="nota-linha">'+avisos.join(' ')+' Valores de 2026 (tabela, redutor, desconto simplificado de até '+m(IR_SIMPL_MAX)+') conforme fontes públicas; confirme na Receita antes de declarar.</p>';
+    const fichaTxt=['IRPF ano-base '+IR_ANO+' — Tâmara Cavalcante (MEI) — simulação','',
+      'Receita bruta do MEI: '+m(R.rec),'Lucro apurado: '+m(R.lucro),'Rendimentos isentos (cód. 13): '+m(R.isento),
+      'Excedente tributável: '+m(R.exced),'INSS do MEI (previdência oficial): '+m(R.prev12),'Despesas médicas: '+m(c.saude),
+      'Modelo mais vantajoso: '+(R.melhor==="C"?'completa':'simplificada'),'Imposto devido: '+m(R.devido),'Resultado: '+(pagar?'a pagar ':zero?'sem imposto a pagar/restituir ':'a restituir ')+m(Math.abs(R.saldo)),
+      '','Gerado pelo Livro-caixa; confirmar com o contador.'].join('\n');
+    const declTxt=['Contribuição previdenciária oficial (INSS do MEI): '+brl(R.prev12),'Rendimentos isentos, código 13 (lucros do MEI): '+brl(R.isento),
+      'Rendimentos tributáveis de PJ (excedente do MEI): '+brl(R.exced),'Despesas médicas: '+brl(c.saude)].join('\n');
+    h+='<section class="ir-card"><h3>6. Ferramentas</h3><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+
+      '<button class="bt vazado" data-ircopy="ficha">Copiar ficha para o contador</button><button class="bt vazado" data-ircopy="decl">Copiar valores para a declaração</button></div>'+
+      '<label class="ir-c" style="max-width:420px"><span class="rot">Buscar lançamentos de '+IR_ANO+' (entradas e saídas)</span><input class="campo" id="irBusca" placeholder="ex.: unimed, dentista, nome de cliente" value="'+esc(irBuscaTxt)+'" style="font-size:15px;text-align:left"></label>'+
+      '<div id="irBuscaRes">'+irBuscaHTML(irBuscaTxt)+'</div></section>';
     corpo.innerHTML='<div class="ir-wrap">'+h+'</div>';
 
     const alterna=e=>{ const r=e.target.closest("[data-irdet]"); if(!r) return false; const k=r.dataset.irdet; irOpen[k]=!irOpen[k]; renderIRPF(); return true; };
-    corpo.onclick=e=>{ alterna(e); };
+    corpo.onclick=e=>{
+      const cp=e.target.closest("[data-ircopy]");
+      if(cp){ copiarTexto(cp.dataset.ircopy==="ficha"?fichaTxt:declTxt); return; }
+      alterna(e);
+    };
+    corpo.oninput=e=>{ if(e.target.id==="irBusca"){ irBuscaTxt=e.target.value; $("#irBuscaRes").innerHTML=irBuscaHTML(irBuscaTxt); } };
     corpo.onkeydown=e=>{ if((e.key==="Enter"||e.key===" ")&&e.target.closest("[data-irdet]")){ e.preventDefault(); alterna(e); } };
     corpo.onchange=e=>{
       const sel=e.target.closest("[data-irsel]");
@@ -2988,13 +3088,15 @@
   }
 
   function render(){
-    const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
+    const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null; corpo.oninput=null;
     marcarConta();
     document.getElementById("lc").classList.toggle("tema-dash",ui.conta==="dash");
     if(ui.conta==="dash"){ renderDashboard(); return; }
     if(ui.conta==="prev"){ renderPrevisao(); return; }
     if(ui.conta==="fluxo"){ renderFluxoPJ(); return; }
     if(ui.conta==="irpf"){ renderIRPF(); return; }
+    if(ui.conta==="div"){ renderDividas(); return; }
+    if(ui.conta==="cai"){ renderCaixinhas(); return; }
     if(!ui.view) ui.view="mes";
 
     const meses=mesesComDados();
@@ -3667,6 +3769,185 @@
     if(bz) bz.onclick=()=>confirmar("Limpar as metas desta conta?","As metas de "+(conta==="pj"?"Negócio":"Pessoal")+" serão apagadas. Os lançamentos não mudam.","Limpar")
       .then(ok=>{ if(!ok) return; dados.metas[conta]={}; salvar(); renderMetas(); });
     ligarWa();
+  }
+
+  /* ================= OFX (extrato de qualquer banco) ================= */
+  // Lê o arquivo OFX/QFX, não duplica o que já foi importado (por CSV ou por OFX) e atualiza o saldo do banco.
+  function lerOFX(texto){
+    const blocos=texto.split(/<STMTTRN>/i).slice(1);
+    if(!blocos.length) return {erro:"Não encontrei lançamentos nesse arquivo OFX."};
+    const tag=(b,t)=>{ const m=b.match(new RegExp("<"+t+">([^<\\r\\n]*)","i")); return m?m[1].trim():""; };
+    const dISO=d=>d&&d.length>=8?d.slice(0,4)+"-"+d.slice(4,6)+"-"+d.slice(6,8):null;
+    const itens=blocos.map(b=>({
+      iso:dISO(tag(b,"DTPOSTED")),
+      hist:(tag(b,"MEMO")||tag(b,"NAME")).replace(/\s+/g," ").trim(),
+      valor:Math.round(numero(tag(b,"TRNAMT"))*100)/100,
+      fitid:tag(b,"FITID"), doc:tag(b,"CHECKNUM")
+    })).filter(x=>x.iso&&x.hist&&x.valor);
+    const lb=texto.match(/<LEDGERBAL>([\s\S]*?)(<\/LEDGERBAL>|$)/i);
+    let saldoFim=null;
+    if(lb){ const v=tag(lb[1],"BALAMT"), d=dISO(tag(lb[1],"DTASOF")); if(v&&d) saldoFim={iso:d,valor:numero(v)}; }
+    return {itens:itens,saldoFim:saldoFim};
+  }
+  function importarOFX(texto,conta){
+    const r=lerOFX(texto); if(r.erro) return r;
+    const ids=new Set(dados.lancamentos.map(l=>l.id));
+    const livres=new Map();
+    dados.lancamentos.forEach(l=>{
+      if(l.origem!==conta) return;
+      const k=l.data+"|"+Number(l.valor).toFixed(2);
+      if(!livres.has(k)) livres.set(k,[]); livres.get(k).push(l);
+    });
+    let novos=0,repetidos=0,prontos=0; const meses=new Set();
+    r.itens.forEach(it=>{
+      const doc=it.fitid||it.doc||"";
+      const base=it.iso+"|"+doc+"|"+it.valor.toFixed(2)+"|"+it.hist.slice(0,42);
+      if(ids.has(base)){ repetidos++; return; }
+      // mesmo dia e mesmo valor de algo que já está aqui (CSV, OFX anterior ou lançamento manual): é o mesmo
+      const cand=livres.get(it.iso+"|"+it.valor.toFixed(2))||[];
+      if(cand.length){ cand.shift(); repetidos++; return; }
+      let id=base,n=2; while(ids.has(id)) id=base+"#"+(n++);
+      const c=classificar(it.hist,it.valor);
+      const pv=tomarProvisorio(it.iso,it.valor,conta);
+      if(pv){ c.categoria=pv.categoria; c.vinculo=pv.vinculo; }
+      if(c.categoria!=="Sem categoria") prontos++;
+      dados.lancamentos.push({id:id,data:it.iso,hist:it.hist,valor:it.valor,doc:doc,
+        categoria:c.categoria,vinculo:c.vinculo,obs:(pv&&pv.obs!==OBS_CONFERIR)?pv.obs:"",origem:conta});
+      ids.add(id); novos++; meses.add(it.iso.slice(0,7));
+    });
+    if(r.saldoFim) gravarSaldoDia(conta,r.saldoFim.iso,r.saldoFim.valor);
+    dados.lancamentos.sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:a.id<b.id?-1:1);
+    return {novos:novos,repetidos:repetidos,prontos:prontos,meses:[...meses],saldoFim:r.saldoFim};
+  }
+
+  /* ================= dívidas e parcelas ================= */
+  function divNorm(d){ return Object.assign({id:"",nome:"",valorParcela:0,nParcelas:1,pagas:0,diaVenc:10,vinculo:"PF"},d||{}); }
+  const divRest = d => Math.max(0,d.nParcelas-d.pagas);
+  const somaMes = (ym,n) => { let [a,m]=ym.split("-").map(Number); m+=n; a+=Math.floor((m-1)/12); m=((m-1)%12+12)%12+1; return a+"-"+String(m).padStart(2,"0"); };
+  const lerReais = t => { let x=String(t||"").replace(/[R$\s]/g,""); if(/^\d{1,3}(\.\d{3})+$/.test(x)) x=x.replace(/\./g,""); const v=numero(x); return isFinite(v)&&v>0?Math.round(v*100)/100:0; };
+  async function divEditar(id){
+    const ex=dados.dividas.find(x=>x.id===id), d=divNorm(ex);
+    const f=await modal('<h3 class="modal-tit">'+(ex?'Editar':'Nova')+' dívida / parcelamento</h3><form onsubmit="return false">'+
+      '<label>Nome<input name="nome" required value="'+esc(d.nome)+'" placeholder="ex.: notebook, acordo, financiamento"></label>'+
+      '<label>Valor da parcela (R$)<input name="valorParcela" required inputmode="decimal" value="'+(d.valorParcela?esc(brl(d.valorParcela)):"")+'"></label>'+
+      '<label>Total de parcelas<input name="nParcelas" required inputmode="numeric" value="'+(ex?d.nParcelas:"")+'"></label>'+
+      '<label>Parcelas já pagas<input name="pagas" inputmode="numeric" value="'+d.pagas+'"></label>'+
+      '<label>Dia do vencimento<input name="diaVenc" inputmode="numeric" value="'+d.diaVenc+'"></label>'+
+      '<label>Quem paga<select name="vinculo"><option value="PF"'+(d.vinculo==="PF"?" selected":"")+'>Pessoal (CPF)</option><option value="PJ"'+(d.vinculo==="PJ"?" selected":"")+'>Negócio (MEI)</option></select></label>'+
+      '<div class="modal-acoes"><button type="button" class="bt vazado" data-modal="cancelar">Cancelar</button><button type="button" class="bt" data-modal="ok">Salvar</button></div></form>');
+    if(!f) return;
+    const n=Math.max(1,parseInt(f.nParcelas)||1), v=lerReais(f.valorParcela);
+    if(!v){ avisar("Digite o valor da parcela.",true); return; }
+    const novo={id:ex?ex.id:"d"+Date.now(),nome:String(f.nome).trim(),valorParcela:v,nParcelas:n,
+      pagas:Math.min(n,Math.max(0,parseInt(f.pagas)||0)),diaVenc:Math.min(31,Math.max(1,parseInt(f.diaVenc)||10)),vinculo:f.vinculo==="PJ"?"PJ":"PF"};
+    if(ex) Object.assign(ex,novo); else dados.dividas.push(novo);
+    salvar(); renderDividas();
+  }
+  function renderDividas(){
+    const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
+    $("#abas").innerHTML='<div class="periodo"><span class="sub" style="margin:0"><b>Dívidas e parcelas.</b> Parcelamentos e dívidas em andamento, com o que falta pagar e o compromisso dos próximos meses. É um controle à parte: não altera os saldos dos bancos.</span></div>';
+    const L=dados.dividas.map(divNorm), ativas=L.filter(d=>divRest(d)>0), quit=L.filter(d=>divRest(d)===0);
+    const saldo=ativas.reduce((s,d)=>s+divRest(d)*d.valorParcela,0), mensal=ativas.reduce((s,d)=>s+d.valorParcela,0);
+    const maxR=ativas.reduce((m,d)=>Math.max(m,divRest(d)),0), fim=maxR?somaMes(mesAtual(),maxR-1):null;
+    const card=(rot,val,sub,cor)=>'<div class="dv-card" style="border-top-color:'+cor+'"><div class="dv-rot">'+rot+'</div><div class="dv-val">'+val+'</div><div class="dv-sub">'+sub+'</div></div>';
+    const lin=d=>{
+      const r=divRest(d), pct=Math.round(d.pagas/d.nParcelas*100), q=r?somaMes(mesAtual(),r-1):null;
+      return '<tr><td><b>'+esc(d.nome)+'</b><br><small class="sub">'+(d.vinculo==="PJ"?"Negócio":"Pessoal")+' · vence dia '+d.diaVenc+'</small></td>'+
+        '<td class="n">R$ '+brl(d.valorParcela)+'</td>'+
+        '<td><div class="mbar"><i style="width:'+pct+'%;background:'+(r?"#8E3B46":"#1E8A5F")+'"></i></div><small class="sub">'+d.pagas+' de '+d.nParcelas+' pagas'+(r?' · faltam '+r:' · quitada')+'</small></td>'+
+        '<td class="n">'+(r?'R$ '+brl(r*d.valorParcela):'—')+'</td>'+
+        '<td>'+(q?esc(abrevMes(q)):'—')+'</td>'+
+        '<td class="dv-acoes">'+(r?'<button class="bt vazado" data-dv="pagar" data-id="'+d.id+'">Paguei uma parcela</button>':'')+
+          '<button class="bt vazado" data-dv="edit" data-id="'+d.id+'">Editar</button><button class="bt vazado" data-dv="del" data-id="'+d.id+'">Excluir</button></td></tr>';
+    };
+    let crono="";
+    if(ativas.length){
+      const lin12=[]; for(let k=0;k<12;k++){ const ym=somaMes(mesAtual(),k); const s=ativas.reduce((t,d)=>t+(divRest(d)>k?d.valorParcela:0),0); lin12.push('<tr><td>'+esc(cap(rotuloMes(ym)))+'</td><td class="n">R$ '+brl(s)+'</td></tr>'); }
+      crono='<section class="ir-card"><h3>Compromisso dos próximos 12 meses</h3><table class="dv-tab"><tbody>'+lin12.join("")+'</tbody></table><p class="sub">Considera que a parcela do mês atual ainda não foi paga, até você marcar “Paguei uma parcela”.</p></section>';
+    }
+    corpo.innerHTML='<div class="ir-wrap" style="max-width:1000px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px"><div class="dv-cards">'+
+        card("Falta pagar","R$ "+brl(saldo),ativas.length+" dívida"+(ativas.length===1?"":"s")+" em andamento","#8E3B46")+
+        card("Parcelas por mês","R$ "+brl(mensal),"soma das parcelas ativas","#C0392B")+
+        card("Última parcela",fim?esc(abrevMes(fim)):"—",fim?"previsão de quitação total":"nada em aberto","#1E8A5F")+
+      '</div><button class="bt" id="btNovaDiv">+ Nova dívida / parcelamento</button></div>'+
+      (L.length?'<div class="rolagem"><table class="dv-tab dv-main"><thead><tr><th>Dívida</th><th class="n">Parcela</th><th>Andamento</th><th class="n">Falta pagar</th><th>Quita em</th><th></th></tr></thead><tbody>'+
+        ativas.map(lin).join("")+quit.map(lin).join("")+'</tbody></table></div>'
+        :'<section class="ir-card"><p class="sub" style="margin:0">Nenhuma dívida cadastrada. Use “+ Nova dívida / parcelamento” para incluir cartão parcelado, acordo, financiamento ou empréstimo.</p></section>')+
+      crono+'</div>';
+    $("#btNovaDiv").onclick=()=>divEditar(null);
+    corpo.onclick=async e=>{
+      const b=e.target.closest("[data-dv]"); if(!b) return;
+      const d=dados.dividas.find(x=>x.id===b.dataset.id); if(!d) return;
+      if(b.dataset.dv==="edit") divEditar(d.id);
+      else if(b.dataset.dv==="pagar"){ d.pagas=Math.min(d.nParcelas,(d.pagas||0)+1); salvar(); renderDividas(); }
+      else if(b.dataset.dv==="del"){ if(await confirmar("Excluir “"+d.nome+"”?","A dívida sai desta lista. Os lançamentos das contas não mudam.","Excluir")){ dados.dividas=dados.dividas.filter(x=>x.id!==d.id); salvar(); renderDividas(); } }
+    };
+  }
+
+  /* ================= caixinhas ================= */
+  function caiNorm(c){ return Object.assign({id:"",nome:"",meta:0,guardado:0,aporte:0,conta:"PJ",mov:[]},c||{}); }
+  async function caiEditar(id,pre){
+    const ex=dados.caixinhas.find(x=>x.id===id), c=caiNorm(ex||pre);
+    const f=await modal('<h3 class="modal-tit">'+(ex?'Editar':'Nova')+' caixinha</h3><form onsubmit="return false">'+
+      '<label>Nome<input name="nome" required value="'+esc(c.nome)+'" placeholder="ex.: reserva de emergência, viagem"></label>'+
+      '<label>Meta (R$)<input name="meta" required inputmode="decimal" value="'+(c.meta?esc(brl(c.meta)):"")+'"></label>'+
+      '<label>Quanto já guardou (R$)<input name="guardado" inputmode="decimal" value="'+(c.guardado?esc(brl(c.guardado)):"")+'"></label>'+
+      '<label>Aporte mensal planejado (R$)<input name="aporte" inputmode="decimal" value="'+(c.aporte?esc(brl(c.aporte)):"")+'"></label>'+
+      '<label>Conta<select name="conta"><option value="PJ"'+(c.conta==="PJ"?" selected":"")+'>Negócio (MEI)</option><option value="PF"'+(c.conta==="PF"?" selected":"")+'>Pessoal (CPF)</option></select></label>'+
+      '<div class="modal-acoes"><button type="button" class="bt vazado" data-modal="cancelar">Cancelar</button><button type="button" class="bt" data-modal="ok">Salvar</button></div></form>');
+    if(!f) return;
+    const meta=lerReais(f.meta); if(!meta){ avisar("Digite a meta da caixinha.",true); return; }
+    const novo={nome:String(f.nome).trim(),meta:meta,guardado:lerReais(f.guardado),aporte:lerReais(f.aporte),conta:f.conta==="PF"?"PF":"PJ"};
+    if(ex) Object.assign(ex,novo); else dados.caixinhas.push(Object.assign({id:"c"+Date.now(),mov:[]},novo));
+    salvar(); renderCaixinhas();
+  }
+  async function caiMover(id,sinal){
+    const c=dados.caixinhas.find(x=>x.id===id); if(!c) return;
+    const f=await modal('<h3 class="modal-tit">'+(sinal>0?'Guardar em':'Retirar de')+' “'+esc(c.nome)+'”</h3><form onsubmit="return false">'+
+      '<label>Valor (R$)<input name="v" required inputmode="decimal"></label>'+
+      '<div class="modal-acoes"><button type="button" class="bt vazado" data-modal="cancelar">Cancelar</button><button type="button" class="bt" data-modal="ok">Confirmar</button></div></form>');
+    if(!f) return;
+    const v=lerReais(f.v); if(!v) return;
+    if(sinal<0&&v>c.guardado+0.004){ avisar("A caixinha só tem R$ "+brl(c.guardado)+".",true); return; }
+    c.guardado=Math.round((c.guardado+sinal*v)*100)/100;
+    c.mov=(c.mov||[]).concat([{data:hojeISO(),valor:sinal*v}]).slice(-30);
+    salvar(); renderCaixinhas();
+  }
+  function renderCaixinhas(){
+    const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
+    $("#abas").innerHTML='<div class="periodo"><span class="sub" style="margin:0"><b>Caixinhas.</b> Separe mentalmente o dinheiro por objetivo (reserva de impostos, emergência, viagem). É um controle à parte: guardar ou retirar aqui não mexe nos saldos dos bancos.</span></div>';
+    const L=dados.caixinhas.map(caiNorm);
+    const tot=L.reduce((s,c)=>s+c.guardado,0), meta=L.reduce((s,c)=>s+c.meta,0);
+    const temDAS=L.some(c=>/DAS|imposto/i.test(c.nome));
+    const bloco=c=>{
+      const pct=c.meta?Math.min(100,c.guardado/c.meta*100):0, falta=Math.max(0,c.meta-c.guardado);
+      const meses=falta>0&&c.aporte>0?Math.ceil(falta/c.aporte):0;
+      const prev=falta<=0?'Meta batida':(meses?'Faltam R$ '+brl(falta)+' · ~'+meses+' mes'+(meses>1?'es':'')+' com R$ '+brl(c.aporte)+'/mês (até '+esc(abrevMes(somaMes(mesAtual(),meses)))+')':'Faltam R$ '+brl(falta));
+      const ult=(c.mov||[]).slice(-3).reverse().map(m=>m.data.split("-").reverse().join("/")+' '+(m.valor>0?'+':'−')+'R$ '+brl(Math.abs(m.valor))).join(' · ');
+      return '<section class="ir-card cai"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3 style="margin:0">'+esc(c.nome)+' <small class="sub">'+(c.conta==="PJ"?"Negócio":"Pessoal")+'</small></h3>'+
+        '<div class="dv-acoes"><button class="bt" data-cai="dep" data-id="'+c.id+'">Guardar</button><button class="bt vazado" data-cai="ret" data-id="'+c.id+'">Retirar</button>'+
+        '<button class="bt vazado" data-cai="edit" data-id="'+c.id+'">Editar</button><button class="bt vazado" data-cai="del" data-id="'+c.id+'">Excluir</button></div></div>'+
+        '<div class="cai-val">R$ '+brl(c.guardado)+' <small>de R$ '+brl(c.meta)+' ('+Math.round(pct)+'%)</small></div>'+
+        '<div class="mbar"><i style="width:'+pct.toFixed(1)+'%;background:#0E8A7D"></i></div><p class="sub" style="margin:6px 0 0">'+prev+'</p>'+
+        (ult?'<p class="sub" style="margin:4px 0 0">Últimos movimentos: '+ult+'</p>':'')+'</section>';
+    };
+    corpo.innerHTML='<div class="ir-wrap" style="max-width:900px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px"><div class="dv-cards">'+
+        '<div class="dv-card" style="border-top-color:#0E8A7D"><div class="dv-rot">Guardado nas caixinhas</div><div class="dv-val">R$ '+brl(tot)+'</div><div class="dv-sub">de R$ '+brl(meta)+' em metas</div></div></div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">'+(temDAS?'':'<button class="bt vazado" id="btCaiDas" title="Meta de 12 DAS (R$ '+brl(IR_DAS_MEI)+' por mês)">+ Reserva de impostos (DAS)</button>')+
+        '<button class="bt" id="btNovaCai">+ Nova caixinha</button></div></div>'+
+      (L.length?L.map(bloco).join(""):'<section class="ir-card"><p class="sub" style="margin:0">Nenhuma caixinha ainda. Sugestão para o MEI: uma reserva para o DAS e outra de emergência (3 a 6 meses de despesas fixas).</p></section>')+
+      '</div>';
+    $("#btNovaCai").onclick=()=>caiEditar(null,null);
+    const bd=$("#btCaiDas"); if(bd) bd.onclick=()=>caiEditar(null,{nome:"Reserva de impostos (DAS)",meta:Math.round(IR_DAS_MEI*12*100)/100,aporte:IR_DAS_MEI,conta:"PJ"});
+    corpo.onclick=async e=>{
+      const b=e.target.closest("[data-cai]"); if(!b) return;
+      const c=dados.caixinhas.find(x=>x.id===b.dataset.id); if(!c) return;
+      const a=b.dataset.cai;
+      if(a==="dep") caiMover(c.id,1); else if(a==="ret") caiMover(c.id,-1); else if(a==="edit") caiEditar(c.id);
+      else if(a==="del"&&await confirmar("Excluir a caixinha “"+c.nome+"”?","Ela sai da lista. Os saldos dos bancos não mudam.","Excluir")){ dados.caixinhas=dados.caixinhas.filter(x=>x.id!==c.id); salvar(); renderCaixinhas(); }
+    };
   }
 
   /* ================= resumo para WhatsApp ================= */
