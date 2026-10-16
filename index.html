@@ -694,6 +694,7 @@
   .ir-pl th{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--cinza);text-align:right;padding:4px 8px;border-bottom:1px solid var(--linha)}
   .ir-pl th:first-child{text-align:left}.ir-pl td{text-align:right!important;font-family:var(--sans)!important;font-size:12.5px!important;white-space:nowrap}
   .ir-pl td.d{text-align:left!important}.ir-pl tr.t td{font-weight:600;border-top:1px solid var(--linha)}
+  .ir-conf{margin:0 0 10px;padding-left:18px;font-size:13.5px;line-height:1.5}.ir-conf li{margin:0 0 7px}
 </style>
 
 <div id="telaLogin">
@@ -2772,7 +2773,7 @@
   const IR_ANO = "2026";
   const IR_TAB_ANUAL  = [[29145.60,0,0],[33919.80,.075,2185.92],[45012.60,.15,4729.92],[55976.16,.225,8105.88],[Infinity,.275,10904.76]];
   const IR_TAB_MENSAL = [[2428.80,0,0],[2826.65,.075,182.16],[3751.05,.15,394.16],[4664.68,.225,675.49],[Infinity,.275,908.73]];
-  const IR_INSS_MEI = 81.05; // 5% do salário mínimo de 2026 (R$ 1.621), parte de previdência do DAS do MEI
+  const IR_INSS_MEI = 81.05, IR_DAS_MEI = 86.05; // 5% do salário mínimo de 2026 (R$ 1.621) e DAS total de serviços; INSS ≈ 94,2% do DAS
   const IR_DEP_ANO = 2275.08, IR_DEP_MES = 189.59, IR_INSTR = 3561.50, IR_SIMPL_MAX = 17640, IR_SIMPL_MES = 607.20;
   const irTab = (tab,base)=>{ if(!(base>0)) return 0; const f=tab.find(x=>base<=x[0]); return Math.max(0,base*f[1]-f[2]); };
   const r2 = v => Math.round(v*100)/100;
@@ -2785,7 +2786,8 @@
     return r2(Math.max(0,imp-red));
   }
   function irpfNorm(){
-    const d=Object.assign({saude:0,unimed:0,saudeSel:{},inss:null,contab:"nao",base:"lucro",proj:false},dados.irpf||{});
+    const d=Object.assign({outras:0,unimed:0,saudeSel:{},inss:null,contab:"nao",proj:false},dados.irpf||{});
+    d.base="lucro"; // a retirada considerada é sempre o pró-labore apurado (receita − despesas)
     d.salario=0; d.dep=0; d.instr=0; d.irrf=null; // ela só recebe pelo MEI: sem salário, dependentes, educação nem IR retido
     dados.irpf=d; return d;
   }
@@ -2803,8 +2805,12 @@
       if(l.valor>0&&(l.categoria==="Receita de cliente"||l.categoria==="Produtos para venda")) r.rec+=l.valor;
       else if(ehRetirada(l)) r.ret-=l.valor;
       else if(l.valor<0) r.desp-=l.valor; });
+    const lDas=dados.lancamentos.filter(l=>!l.ignorado&&l.data.slice(0,4)===IR_ANO&&l.valor<0&&/DAS\/MEI|SIMPLES NAC/i.test(l.hist||""));
+    const das=-lDas.reduce((t,l)=>t+l.valor,0), inssDas=r2(das*IR_INSS_MEI/IR_DAS_MEI);
+    // entradas que podem ser pagamento de cliente mas não estão como receita (confira)
+    const lFora=dados.lancamentos.filter(l=>!l.ignorado&&l.data.slice(0,4)===IR_ANO&&l.valor>0&&l.origem!=="cartao"&&(l.categoria==="Transferência recebida"||l.categoria==="Sem categoria"));
     const meses=Object.keys(mm).sort().map(k=>{ const r=mm[k]; r.pl=r2(r.rec-r.desp); r.falta=r2(r.pl-r.ret); return r; });
-    return {meses:meses,serv:serv*f,prod:prod*f,desp:desp*f,ret:ret*f,fator:f,n:L.length,
+    return {meses:meses,lDas:lDas,das:das,inssDas:inssDas,lFora:lFora,serv:serv*f,prod:prod*f,desp:desp*f,ret:ret*f,fator:f,n:L.length,
       lServ:L.filter(l=>l.valor>0&&l.categoria==="Receita de cliente"),lProd:L.filter(l=>l.valor>0&&l.categoria==="Produtos para venda"),
       lDesp:L.filter(l=>l.valor<0&&!ehRetirada(l)),lRet:L.filter(ehRetirada)};
   }
@@ -2815,12 +2821,12 @@
     return dados.lancamentos.filter(l=>!l.ignorado&&l.valor<0&&l.data.slice(0,4)===IR_ANO&&ehMov(l)&&l.categoria!=="Farmácia"&&
         (IR_SAUDE_FORTE.test(l.hist||"")||IR_SAUDE_TALVEZ.test(l.hist||"")))
       .map(l=>{ const pj=l.origem==="pj", forte=IR_SAUDE_FORTE.test(l.hist||"");
-        const pad=forte&&!pj, esc_=c.saudeSel&&c.saudeSel[l.id];
+        const pad=forte, esc_=c.saudeSel&&c.saudeSel[l.id];
         return {id:l.id,data:l.data,hist:String(l.hist||"").replace(/^(Pix - Enviado|Compra com Cartão) - \d\d\/\d\d( \d\d:\d\d)? ?/,""),valor:-l.valor,pj:pj,forte:forte,sel:esc_==null?pad:!!esc_}; })
       .sort((a,b)=>a.data<b.data?-1:1);
   }
   function irpfCalc(c,mei){
-    const sal12=0, prev12=(c.inss==null?IR_INSS_MEI*12:c.inss);
+    const sal12=0, prev12=(c.inss==null?mei.inssDas:c.inss);
     const irrfEst=0, ir13=0;
     const rec=mei.serv+mei.prod, lucro=Math.max(0,rec-mei.desp);
     const pres=mei.serv*.32+mei.prod*.08;
@@ -2862,22 +2868,22 @@
   }
 
   function irPlMeses(meses){
-    const T=meses.reduce((a,r)=>({rec:a.rec+r.rec,desp:a.desp+r.desp,pl:a.pl+r.pl,ret:a.ret+r.ret,falta:a.falta+r.falta}),{rec:0,desp:0,pl:0,ret:0,falta:0});
+    const T=meses.reduce((a,r)=>({rec:a.rec+r.rec,desp:a.desp+r.desp,pl:a.pl+r.pl}),{rec:0,desp:0,pl:0});
     const nm=m=>MESES[+m.slice(5,7)-1].slice(0,3), c=v=>v<-0.004?' style="color:var(--tijolo)"':'';
-    return '<div class="ir-lista"><p class="sub" style="margin:0 0 6px">Pró-labore do mês = tudo o que entrou de clientes (no CPF ou no CNPJ) menos o que foi gasto no negócio. '+
-      'A coluna “já retirado” é o que já foi lançado como pró-labore (transferências CNPJ → CPF).</p><div class="ir-scroll"><table class="ir-tab ir-sub ir-pl"><thead><tr><th>Mês</th><th>Receita</th><th>Despesas</th><th>Pró-labore</th><th>Já retirado</th><th>Diferença</th></tr></thead><tbody>'+
-      meses.map(r=>'<tr><td class="d">'+nm(r.m)+'/'+r.m.slice(2,4)+'</td><td>'+brl(r.rec)+'</td><td>'+brl(r.desp)+'</td><td'+c(r.pl)+'><b>'+brl(r.pl)+'</b></td><td>'+brl(r.ret)+'</td><td'+c(r.falta)+'>'+brl(r.falta)+'</td></tr>').join("")+
-      '<tr class="t"><td>Total</td><td>'+brl(T.rec)+'</td><td>'+brl(T.desp)+'</td><td><b>'+brl(T.pl)+'</b></td><td>'+brl(T.ret)+'</td><td>'+brl(T.falta)+'</td></tr></tbody></table></div>'+
-      '<div class="ir-lt">Valores do ano, sem projeção. A diferença é o pró-labore que ficou na conta (CPF ou CNPJ) sem transferência lançada.</div></div>';
+    return '<div class="ir-lista"><p class="sub" style="margin:0 0 6px">Pró-labore do mês = tudo o que entrou de clientes (no CPF ou no CNPJ) menos o que foi gasto no negócio.</p>'+
+      '<div class="ir-scroll"><table class="ir-tab ir-sub ir-pl"><thead><tr><th>Mês</th><th>Receita</th><th>Despesas</th><th>Pró-labore</th></tr></thead><tbody>'+
+      meses.map(r=>'<tr><td class="d">'+nm(r.m)+'/'+r.m.slice(2,4)+'</td><td>'+brl(r.rec)+'</td><td>'+brl(r.desp)+'</td><td'+c(r.pl)+'><b>'+brl(r.pl)+'</b></td></tr>').join("")+
+      '<tr class="t"><td>Total</td><td>'+brl(T.rec)+'</td><td>'+brl(T.desp)+'</td><td><b>'+brl(T.pl)+'</b></td></tr></tbody></table></div>'+
+      '<div class="ir-lt">Valores do ano, sem projeção.</div></div>';
   }
 
   function renderIRPF(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
     const c0=irpfNorm(), mei=irpfMei(c0.proj); if(irOpen.plm===undefined) irOpen.plm=true;
     const itensS=irpfSaudeItens(c0), saudeLanc=itensS.filter(i=>i.sel).reduce((t,i)=>t+i.valor,0);
-    const c=Object.assign({},c0,{saude:c0.saude+c0.unimed+saudeLanc}), R=irpfCalc(c,mei);
+    const c=Object.assign({},c0,{saude:c0.outras+c0.unimed+saudeLanc}), R=irpfCalc(c,mei);
     $("#abas").innerHTML='<div class="periodo"><span class="sub" style="margin:0"><b>Imposto de Renda.</b> Simulação do IRPF do ano-base '+IR_ANO+
-      ' (declaração em 2027), com as regras novas da Lei 15.270/2025. Calculado a partir dos lançamentos do Negócio — MEI; salário e deduções são opcionais.</span></div>';
+      ' (declaração em 2027), com as regras novas da Lei 15.270/2025. Tudo vem dos lançamentos do Negócio — MEI; clique numa linha com ▸ para ver os lançamentos.</span></div>';
     const m=v=>'R$ '+brl(v);
     const campo=(k,rot,val,dica)=>'<label class="ir-c"><span class="rot">'+rot+'</span><input class="campo ir-in" data-ir="'+k+'" data-foco="ir:'+k+'" inputmode="decimal" value="'+(val===""?"":esc(val))+'" placeholder="0,00">'+(dica?'<small>'+dica+'</small>':'')+'</label>';
     const lin=(rot,v,cls)=>'<tr class="'+(cls||"")+'"><td>'+rot+'</td><td>'+(typeof v==="number"?m(v):v)+'</td></tr>';
@@ -2889,15 +2895,16 @@
     h+='<section class="ir-card ir-res"><span class="rot">Resultado da simulação · ano-base '+IR_ANO+'</span>'+
       '<div class="num" style="color:'+corRes+'">'+m(Math.abs(R.saldo))+'</div><p class="sub" style="font-size:14px">'+titRes+' · melhor modelo: <b>'+mod+'</b>'+
       ' · alíquota efetiva '+(R.trib>0?(R.devido/R.trib*100).toFixed(1).replace(".",","):"0,0")+'% dos rendimentos tributáveis</p></section>';
-    h+='<section class="ir-card"><h3>1. Deduções</h3><div class="ir-grid">'+
-      campo("inss","INSS do MEI pago no ano (DAS)",c0.inss==null?"":brl(c0.inss),"Previdência oficial dela. Vazio = "+m(IR_INSS_MEI)+" × 12 = "+m(IR_INSS_MEI*12)+" (5% do salário mínimo de R$ 1.621).")+
-      campo("unimed","Plano Unimed — sua parte paga no ano",c0.unimed?brl(c0.unimed):"","Só a parte que ela paga (informe do plano). Não aparece nos lançamentos: lance aqui.")+
-      campo("saude","Outras despesas médicas no ano",c0.saude?brl(c0.saude):"","Além das listadas abaixo. Sem limite; precisa de recibo.")+
-      '</div><div class="ir-opts"><label><input type="checkbox" data-ir="proj" '+(c.proj?"checked":"")+'> Projetar a receita do MEI até dezembro'+(mei.fator>1?' (×'+mei.fator.toFixed(2).replace(".",",")+')':'')+'</label>'+
+    const inssAuto=c0.inss==null;
+    const detInss=irLista(irItensL(mei.lDas),'DAS-MEI pago em '+IR_ANO+' ('+m(mei.das)+'). Desse total, cerca de 94% é INSS (R$ 81,05 de cada DAS de R$ 86,05): '+m(mei.inssDas)+'. '+
+        'Valores diferentes de R$ 86,05 podem ser DAS em atraso ou de outra competência: confira.')+
+      '<label class="ir-c" style="max-width:260px;margin-top:8px"><span class="rot">Ajustar o valor (opcional)</span><input class="campo ir-in" data-ir="inss" data-foco="ir:inss" inputmode="decimal" value="'+(inssAuto?"":esc(brl(c0.inss)))+'" placeholder="'+brl(mei.inssDas)+'"><small>Vazio = valor calculado dos lançamentos.</small></label>';
+    h+='<section class="ir-card"><h3>1. Deduções</h3><table class="ir-tab"><tbody>'+
+      irLinD("inss","INSS do MEI pago no ano (previdência oficial)",R.prev12,detInss)+
+      irLinD("medT","Despesas médicas (dentista, psicólogo, plano de saúde…)",c.saude,'<p class="sub" style="margin:4px 0">Detalhe e marcação na seção “Despesas médicas”, logo abaixo.</p>')+
+      '</tbody></table><div class="ir-opts"><label><input type="checkbox" data-ir="proj" '+(c.proj?"checked":"")+'> Projetar a receita do MEI até dezembro'+(mei.fator>1?' (×'+mei.fator.toFixed(2).replace(".",",")+')':'')+'</label>'+
       '<label>Lucro do MEI: <select class="campo ir-sel" data-ir="contab"><option value="nao" '+(c.contab==="nao"?"selected":"")+'>sem contabilidade (percentual presumido)</option>'+
-      '<option value="sim" '+(c.contab==="sim"?"selected":"")+'>com contador (todo o lucro isento)</option></select></label>'+
-      '<label>Valor que passou para a Tâmara: <select class="campo ir-sel" data-ir="base"><option value="lucro" '+(c.base==="lucro"?"selected":"")+'>todo o lucro apurado</option>'+
-      '<option value="ret" '+(c.base==="ret"?"selected":"")+'>só as retiradas lançadas (pró-labore)</option></select></label></div></section>';
+      '<option value="sim" '+(c.contab==="sim"?"selected":"")+'>com contador (todo o lucro isento)</option></select></label></div></section>';
     h+='<section class="ir-card"><h3>2. MEI — Tâmara Cavalcante Organizer</h3><table class="ir-tab"><tbody>'+
       irLinD("serv","Receita de serviços (isenção presumida de 32%)",mei.serv,irLista(irItensL(mei.lServ),mei.fator>1?'Lançamentos reais; o valor acima está multiplicado por '+mei.fator.toFixed(2).replace(".",",")+' (projeção até dezembro).':""))+
       irLinD("prod","Receita de produtos (isenção presumida de 8%)",mei.prod,irLista(irItensL(mei.lProd)))+
@@ -2905,7 +2912,7 @@
       irLinD("desp","(−) Despesas do negócio lançadas no app",mei.desp,irLista(irItensL(mei.lDesp),mei.fator>1?'Lançamentos reais; o valor acima está multiplicado pela projeção.':""))+
       lin("Lucro do MEI",R.lucro,"t")+
       irLinD("plm","Pró-labore apurado no ano (receita − despesas, mês a mês)",mei.meses.reduce((t,r)=>t+r.pl,0),irPlMeses(mei.meses),"t")+
-      irLinD("ret","Retiradas lançadas como pró-labore",mei.ret,irLista(irItensL(mei.lRet)))+lin("Valor considerado como distribuído à titular",R.distr)+
+      lin("Valor considerado como distribuído à titular (pró-labore)",R.distr)+
       lin("Isenção presumida (32% e 8% da receita)",R.pres)+
       lin("Parcela isenta (rendimento isento, código 13)",R.isento,"t")+
       lin("Excedente tributável (soma ao salário)",R.exced,R.exced>0?"neg":"")+'</tbody></table>'+
@@ -2913,17 +2920,19 @@
       ' Como o MEI declara: a parte isenta é o percentual presumido da receita bruta (32% serviços, 8% comércio); o que a titular recebeu além disso só é isento com escrituração contábil — sem ela, entra como rendimento tributável.</p></section>';
     const lancFarm=dados.lancamentos.filter(l=>!l.ignorado&&l.data.slice(0,4)===IR_ANO&&ehMov(l)&&l.categoria==="Farmácia");
     const farm=-lancFarm.reduce((t,l)=>t+l.valor,0);
-    const checklist=itensS.length?'<div class="ir-lista"><p class="sub" style="margin:0 0 6px">Marque os que têm recibo/nota em nome da Tâmara. O que foi pago pela conta do CNPJ vem desmarcado.</p><table class="ir-tab ir-sub"><tbody>'+
+    const checklist=itensS.length?'<div class="ir-lista"><p class="sub" style="margin:0 0 6px">Desmarque o que não tiver recibo em nome da Tâmara. Os marcados já entram no cálculo.</p><table class="ir-tab ir-sub"><tbody>'+
       itensS.map(x=>'<tr><td><label><input type="checkbox" data-irsel="'+esc(x.id)+'" '+(x.sel?"checked":"")+'> '+esc(x.data.split("-").reverse().join("/"))+' · '+esc(x.hist)+
         (x.pj?' <small class="neg">pago pela conta CNPJ</small>':'')+(!x.forte?' <small>confirme a especialidade</small>':'')+'</label></td><td>R$ '+brl(x.valor)+'</td></tr>').join("")+
       '</tbody></table></div>':'<p class="sub">Nenhum dentista, médico, psicólogo ou clínica encontrado nos lançamentos de '+IR_ANO+'.</p>';
     h+='<section class="ir-card"><h3>Despesas médicas</h3><p class="sub" style="margin-top:0">Clique em uma soma para ver os lançamentos.</p><table class="ir-tab"><tbody>'+
       irLinD("saudeL","Dos lançamentos (marcados como dedutíveis)",saudeLanc,checklist)+
-      lin("Plano Unimed (campo acima)",c0.unimed)+lin("Outras despesas médicas (campo acima)",c0.saude)+
+      irLinD("unimed","Plano Unimed — sua parte paga no ano",c0.unimed,'<p class="sub" style="margin:4px 0">Não aparece nos lançamentos (é descontado fora das contas): digite o total do ano, conforme o informe do plano.</p>'+
+        '<label class="ir-c" style="max-width:260px"><span class="rot">Valor pago no ano</span><input class="campo ir-in" data-ir="unimed" data-foco="ir:unimed" inputmode="decimal" value="'+(c0.unimed?esc(brl(c0.unimed)):"")+'" placeholder="0,00"></label>')+
+      irLinD("outras","Outras despesas médicas (sem lançamento)",c0.outras,'<label class="ir-c" style="max-width:260px"><span class="rot">Valor no ano</span><input class="campo ir-in" data-ir="outras" data-foco="ir:outras" inputmode="decimal" value="'+(c0.outras?esc(brl(c0.outras)):"")+'" placeholder="0,00"></label>')+
       lin("Total de despesas médicas na declaração",c.saude,"t")+
       irLinD("farm","Farmácia — não dedutível (fora da conta)",farm,irLista(irItensL(lancFarm.filter(l=>l.valor<0)),"Remédio comprado em farmácia não entra no IRPF."),"neg")+
       '</tbody></table>'+
-      '<p class="sub">Entram só consultas, dentista, psicólogo, exames, hospital e plano de saúde, com recibo/nota em nome da Tâmara (CPF ou CNPJ do profissional). <b>Remédio de farmácia, estética e academia não são dedutíveis.</b> O plano Unimed não está nos lançamentos: preencha o valor no campo acima.</p></section>';
+      '<p class="sub">Entram só consultas, dentista, psicólogo, exames, hospital e plano de saúde, com recibo/nota em nome da Tâmara (CPF ou CNPJ do profissional). <b>Remédio de farmácia, estética e academia não são dedutíveis.</b> Itens pagos pela conta do CNPJ também vêm marcados: como a retirada dela é todo o lucro, são gasto pessoal pago com o dinheiro dela; exija recibo em nome dela (CPF). O plano Unimed não está nos lançamentos: digite o valor na linha própria.</p></section>';
     const col=(t,ded,base,imp,red,dev,best)=>'<td class="'+(best?"ir-best":"")+'"><b>'+t+'</b>'+(best?' <small>melhor</small>':'')+
       '<div>Deduções: '+m(ded)+'</div><div>Base de cálculo: '+m(base)+'</div><div>Imposto pela tabela: '+m(imp)+'</div>'+
       '<div>Redutor (Lei 15.270): −'+m(red)+'</div><div class="ir-dev">Imposto devido: '+m(dev)+'</div></td>';
@@ -2941,11 +2950,22 @@
       (R.exced>0?lin("Rendimentos tributáveis recebidos de PJ — excedente do MEI",R.exced):"")+
       '</tbody></table><p class="sub">Informe também o CNPJ do MEI em Bens e Direitos (como empresa), o saldo das contas e das aplicações em 31/12 e as dívidas, se houver. '+
       'A Receita pré-preenche parte disso — confira tudo contra os extratos do BB e os recibos.</p></section>';
-    const avisos=['Isto é uma <b>simulação</b>, não substitui o programa da Receita nem o seu contador.'];
-    if(R.rendaGlobal>600000) avisos.push('Sua renda total passa de R$ 600.000/ano: entra o imposto mínimo (IRPFM), que esta simulação não calcula.');
-    if(R.rec>97200) avisos.push('<b>Atenção:</b> a receita do MEI ('+m(R.rec)+') passou muito do limite de R$ 81.000 (tolerância de R$ 97.200): há risco de desenquadramento retroativo e o imposto real seria o de ME/Simples, não de MEI. Converse com o contador.');
-    else if(R.rec>81000) avisos.push('A receita do MEI passou de R$ 81.000: veja o limite do MEI na aba Negócio.');
-    h+='<p class="nota-linha">'+avisos.join(' ')+' Valores de 2026 (tabela, redutor, desconto simplificado de até '+m(IR_SIMPL_MAX)+') conforme reportado em fontes públicas; confirme na Receita antes de declarar.</p>';
+    const tribL=R.exced, isentoL=R.isento, TOL=97200, LIM=81000;
+    const itens=[];
+    itens.push('<li><b>Limite do MEI.</b> Receita bruta de '+m(R.rec)+' contra o limite de R$ 81.000 (tolerância de R$ 97.200). '+
+      (R.rec>TOL?'<b style="color:var(--tijolo)">Passou mais de 20% do limite: desenquadramento retroativo a 01/01/'+IR_ANO+' (vira ME no Simples Nacional, com tributos sobre toda a receita do ano). Fale com o contador antes de declarar.</b>'
+        :R.rec>LIM?'Passou do limite, mas dentro da tolerância: vira ME em janeiro do ano seguinte e paga DAS complementar.':'Dentro do limite.')+'</li>');
+    itens.push('<li><b>Declaração obrigatória?</b> Rendimento tributável de '+m(tribL)+' (limite de R$ 35.584 no ano-base 2025) e isentos de '+m(isentoL)+' (limite de R$ 200.000). '+
+      ((tribL>35584||isentoL>200000)?'Passou de um limite: obrigatória.':'Abaixo dos dois limites por renda; vale conferir bens acima de R$ 800.000 e as regras do ano-base '+IR_ANO+' no edital da Receita. Mesmo sem obrigação, declarar serve de comprovante de renda.')+'</li>');
+    itens.push('<li><b>Entradas fora da receita.</b> '+(mei.lFora.length?'Há '+mei.lFora.length+(mei.lFora.length>1?' entradas':' entrada')+' (“Transferência recebida” ou “Sem categoria”) somando <b>'+m(mei.lFora.reduce((t,l)=>t+l.valor,0))+'</b> que não entraram como receita. Se algum for pagamento de cliente, a receita, o lucro e o excedente sobem.'
+      :'Nenhuma entrada sem classificação.')+'</li>');
+    itens.push('<li><b>Sem escrituração contábil</b>, só a parcela presumida (32%) é isenta; o excedente de '+m(R.exced)+' entra como rendimento tributável. Com contador, todo o lucro de '+m(R.lucro)+' seria isento.</li>');
+    itens.push('<li><b>Pontos a confirmar com o contador:</b> (1) se o DAS pago deve ser subtraído da receita antes de aplicar o percentual de isenção (esta simulação não subtrai); (2) se o INSS do DAS pode ser deduzido como previdência oficial (aqui é deduzido); (3) o limite de obrigatoriedade do ano-base '+IR_ANO+'.</li>');
+    const avisos=['Isto é uma <b>simulação</b>, não substitui o programa da Receita nem o contador.'];
+    if(R.rendaGlobal>600000) avisos.push('Renda total acima de R$ 600.000/ano: entra o imposto mínimo (IRPFM), que esta simulação não calcula.');
+    h+='<section class="ir-card"><h3>5. Conferência do contador</h3><ul class="ir-conf">'+itens.join("")+'</ul><table class="ir-tab"><tbody>'+
+      irLinD("fora","Entradas fora da receita (ver lançamentos)",mei.lFora.reduce((t,l)=>t+l.valor,0),irLista(irItensL(mei.lFora),"Confira se algum desses é pagamento de cliente."))+'</tbody></table></section>';
+    h+='<p class="nota-linha">'+avisos.join(' ')+' Valores de 2026 (tabela, redutor, desconto simplificado de até '+m(IR_SIMPL_MAX)+') conforme fontes públicas; confirme na Receita antes de declarar.</p>';
     corpo.innerHTML='<div class="ir-wrap">'+h+'</div>';
 
     const alterna=e=>{ const r=e.target.closest("[data-irdet]"); if(!r) return false; const k=r.dataset.irdet; irOpen[k]=!irOpen[k]; renderIRPF(); return true; };
