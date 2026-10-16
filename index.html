@@ -605,6 +605,7 @@
 
   /* ---- fluxo do CNPJ ---- */
   .conta-tab[data-conta=fluxo].ativa{color:#0E7490;border-bottom-color:#0E7490}
+  .conta-tab[data-conta=irpf].ativa{color:#785E28;border-bottom-color:#785E28}
   .fx-nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   .fx-nav button{border:1px solid var(--linha);background:#fff;padding:6px 12px;border-radius:3px;font-size:13px;color:var(--tinta)}
   .fx-nav button:hover{border-color:var(--verde);color:var(--verde)}
@@ -659,6 +660,27 @@
   .tot.clic-card{border-radius:0}
   .pv-l.clic-card{margin-left:-6px;margin-right:-6px;padding-left:6px;padding-right:6px}
   tr.clic-card:hover td{background:rgba(47,74,60,.06)}
+  .ir-wrap{max-width:860px;margin:16px 0 0}
+  .ir-card{border:1px solid var(--linha);border-radius:4px;padding:16px 18px;margin:0 0 14px;background:#fff}
+  .ir-card h3{font-family:var(--serif);font-size:22px;font-weight:500;margin:0 0 10px}
+  .ir-res .num{margin:2px 0 4px}
+  .ir-aviso{border:1px solid #E5C77B;background:#FBF3DC;border-radius:4px;padding:10px 14px;margin:0 0 14px;font-size:13.5px}
+  .ir-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px 16px}
+  .ir-c .ir-in{border:1px solid var(--linha);background:#fff;padding:7px 9px;border-radius:3px;font-family:var(--serif);font-size:18px;text-align:right}
+  .ir-c small{display:block;color:var(--cinza);font-size:11.5px;margin-top:3px;line-height:1.35}
+  .ir-opts{display:flex;flex-wrap:wrap;gap:14px 26px;margin-top:14px;font-size:13.5px;align-items:center}
+  .ir-sel{border:1px solid var(--linha)!important;background:#fff!important;padding:5px 8px;border-radius:3px;width:auto!important}
+  .ir-tab{width:100%;border-collapse:collapse;margin:4px 0 8px}
+  .ir-tab td{padding:6px 4px;border-bottom:1px solid var(--linha-clara);font-size:13.5px}
+  .ir-tab td:last-child{text-align:right;font-family:var(--serif);font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ir-tab tr.t td{font-weight:600;border-bottom-color:var(--linha)}
+  .ir-tab tr.neg td:last-child{color:var(--tijolo)}
+  .ir-cmp{width:100%;border-collapse:separate;border-spacing:10px 0;margin:6px -10px 10px;table-layout:fixed}
+  .ir-cmp td{vertical-align:top;border:1px solid var(--linha);border-radius:4px;padding:10px 12px;font-size:13px;line-height:1.6}
+  .ir-cmp td.ir-best{border-color:var(--verde);background:#F2F6F3}
+  .ir-cmp small{color:var(--verde);font-weight:600}
+  .ir-dev{margin-top:4px;font-family:var(--serif);font-size:17px;font-weight:600}
+  @media(max-width:640px){.ir-cmp,.ir-cmp tr,.ir-cmp td{display:block;width:auto;margin:0 0 8px}}
 </style>
 
 <div id="telaLogin">
@@ -715,6 +737,7 @@
     <button class="conta-tab" data-conta="pj">Negócio — MEI</button>
     <button class="conta-tab" data-conta="prev">Previsão do mês</button>
     <button class="conta-tab" data-conta="fluxo">Fluxo CNPJ</button>
+    <button class="conta-tab" data-conta="irpf">Imposto de Renda</button>
     <span class="conta-sep">Conferir com o extrato:</span>
     <button class="conta-tab banco" data-conta="bcpf">Conta CPF</button>
     <button class="conta-tab banco" data-conta="bpj">Conta CNPJ</button>
@@ -1360,6 +1383,7 @@
     dados.previsoes   = normPrev(d.previsoes);
     dados.saldosDia   = d.saldosDia||{};
     dados.fluxoPJ     = normFluxoPJ(d.fluxoPJ);
+    dados.irpf        = d.irpf||null;
     migrar();
     dados.lancamentos.forEach(l=>{ if(CATS_SO_NEGOCIO.has(l.categoria)) l.vinculo="PJ"; });
   }
@@ -2729,6 +2753,135 @@
     };
   }
 
+  /* ================= Imposto de Renda — simulação IRPF (ano-base 2026, declaração em 2027) =================
+     Regras da Lei 15.270/2025: isenção até R$ 5.000/mês, redutor até R$ 7.350/mês, tabela progressiva de 2025.
+     É uma SIMULAÇÃO: confira com o programa da Receita / contador antes de declarar. */
+  const IR_ANO = "2026";
+  const IR_TAB_ANUAL  = [[29145.60,0,0],[33919.80,.075,2185.92],[45012.60,.15,4729.92],[55976.16,.225,8105.88],[Infinity,.275,10904.76]];
+  const IR_TAB_MENSAL = [[2428.80,0,0],[2826.65,.075,182.16],[3751.05,.15,394.16],[4664.68,.225,675.49],[Infinity,.275,908.73]];
+  const IR_DEP_ANO = 2275.08, IR_DEP_MES = 189.59, IR_INSTR = 3561.50, IR_SIMPL_MAX = 17640, IR_SIMPL_MES = 607.20;
+  const irTab = (tab,base)=>{ if(!(base>0)) return 0; const f=tab.find(x=>base<=x[0]); return Math.max(0,base*f[1]-f[2]); };
+  const r2 = v => Math.round(v*100)/100;
+
+  // IR retido na fonte em um mês (usa o melhor entre deduções legais e desconto simplificado) + redutor
+  function irrfMes(bruto,prev,dep,comRedutor){
+    const base=Math.min(bruto-prev-dep*IR_DEP_MES, bruto-IR_SIMPL_MES);
+    let imp=irTab(IR_TAB_MENSAL,base), red=0;
+    if(comRedutor){ if(bruto<=5000) red=imp; else if(bruto<=7350) red=Math.min(imp,978.62-0.133145*bruto); }
+    return r2(Math.max(0,imp-red));
+  }
+  function irpfNorm(){
+    const d=Object.assign({salario:20000,prevPct:11,dep:0,saude:0,instr:0,irrf:null,contab:"nao",proj:true,salarioEditado:false},dados.irpf||{});
+    dados.irpf=d; return d;
+  }
+  function irpfMei(proj){
+    const L=dados.lancamentos.filter(l=>!l.ignorado&&l.data.slice(0,4)===IR_ANO&&ehNegocio(l)&&ehMov(l));
+    const s=a=>a.reduce((t,l)=>t+l.valor,0);
+    let serv=s(L.filter(l=>l.valor>0&&l.categoria==="Receita de cliente"));
+    let prod=s(L.filter(l=>l.valor>0&&l.categoria==="Produtos para venda"));
+    let desp=-s(L.filter(l=>l.valor<0&&!ehRetirada(l)));
+    const hoje=new Date(), f=(proj&&String(hoje.getFullYear())===IR_ANO)?12/(hoje.getMonth()+1):1;
+    return {serv:serv*f,prod:prod*f,desp:desp*f,fator:f,n:L.length};
+  }
+  function irpfCalc(c,mei){
+    const sal12=c.salario*12, prevMes=c.salario*c.prevPct/100, prev12=prevMes*12;
+    const irrfMes12=irrfMes(c.salario,prevMes,c.dep,true);
+    const irrfEst=r2(irrfMes12*12);
+    const base13=Math.min(c.salario-prevMes-c.dep*IR_DEP_MES, c.salario-IR_SIMPL_MES);
+    const ir13=r2(irTab(IR_TAB_MENSAL,base13));               // 13º: tributação exclusiva na fonte
+    const rec=mei.serv+mei.prod, lucro=Math.max(0,rec-mei.desp);
+    const pres=mei.serv*.32+mei.prod*.08;
+    const isento = c.contab==="sim" ? lucro : Math.min(pres,lucro);
+    const exced  = c.contab==="sim" ? 0 : Math.max(0,lucro-pres);
+    const trib=sal12+exced;
+    const redutor=(imp)=> trib<=60000 ? imp : trib<=88200 ? Math.min(imp,11743.44-0.133145*trib) : 0;
+    // completa
+    const instr=Math.min(c.instr,IR_INSTR*(1+c.dep));
+    const dedC=prev12+c.dep*IR_DEP_ANO+c.saude+instr, baseC=Math.max(0,trib-dedC);
+    const impC=irTab(IR_TAB_ANUAL,baseC), devC=Math.max(0,impC-redutor(impC));
+    // simplificada
+    const dedS=Math.min(trib*.2,IR_SIMPL_MAX), baseS=Math.max(0,trib-dedS);
+    const impS=irTab(IR_TAB_ANUAL,baseS), devS=Math.max(0,impS-redutor(impS));
+    const melhor=devS<devC?"S":"C", devido=Math.min(devC,devS);
+    const credito=(c.irrf==null?irrfEst:c.irrf);
+    return {sal12,prev12,irrfEst,ir13,rec,lucro,pres,isento,exced,trib,dedC,baseC,impC,devC,dedS,baseS,impS,devS,melhor,devido,credito,
+            saldo:r2(devido-credito),instr,rendaGlobal:trib+isento+c.salario,redC:redutor(impC),redS:redutor(impS)};
+  }
+
+  function renderIRPF(){
+    const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
+    const c=irpfNorm(), mei=irpfMei(c.proj), R=irpfCalc(c,mei);
+    $("#abas").innerHTML='<div class="periodo"><span class="sub" style="margin:0"><b>Imposto de Renda.</b> Simulação do IRPF do ano-base '+IR_ANO+
+      ' (declaração em 2027), com as regras novas da Lei 15.270/2025. A receita do MEI vem dos lançamentos do app; o resto você edita.</span></div>';
+    const m=v=>'R$ '+brl(v);
+    const campo=(k,rot,val,dica)=>'<label class="ir-c"><span class="rot">'+rot+'</span><input class="campo ir-in" data-ir="'+k+'" data-foco="ir:'+k+'" inputmode="decimal" value="'+(val===""?"":esc(val))+'" placeholder="0,00">'+(dica?'<small>'+dica+'</small>':'')+'</label>';
+    const lin=(rot,v,cls)=>'<tr class="'+(cls||"")+'"><td>'+rot+'</td><td>'+(typeof v==="number"?m(v):v)+'</td></tr>';
+    const pagar=R.saldo>0.004, zero=Math.abs(R.saldo)<=0.004;
+    const corRes=zero?"var(--cinza)":pagar?"var(--tijolo)":"var(--verde)";
+    const titRes=zero?"Sem imposto a pagar nem a restituir":pagar?"Imposto a pagar":"Imposto a restituir";
+    const mod=R.melhor==="S"?"declaração simplificada":"declaração completa";
+    let h='';
+    if(!c.salarioEditado) h+='<div class="ir-aviso">O salário de <b>R$ 20.000,00/mês</b> é só um valor de exemplo. Preencha o seu salário bruto (SEFAZ-MG) e o IR retido do informe de rendimentos para a simulação ficar real.</div>';
+    h+='<section class="ir-card ir-res"><span class="rot">Resultado da simulação · ano-base '+IR_ANO+'</span>'+
+      '<div class="num" style="color:'+corRes+'">'+m(Math.abs(R.saldo))+'</div><p class="sub" style="font-size:14px">'+titRes+' · melhor modelo: <b>'+mod+'</b>'+
+      ' · alíquota efetiva '+(R.trib>0?(R.devido/R.trib*100).toFixed(1).replace(".",","):"0,0")+'% dos rendimentos tributáveis</p></section>';
+    h+='<section class="ir-card"><h3>1. Seus dados</h3><div class="ir-grid">'+
+      campo("salario","Salário bruto mensal",brl(c.salario),"Auditor fiscal — SEFAZ-MG. Valor mensal, antes dos descontos.")+
+      campo("prevPct","Previdência oficial (%)",String(c.prevPct).replace(".",","),"Desconto do regime próprio (RPPS) sobre o salário.")+
+      campo("dep","Dependentes",String(c.dep),"Cada um deduz "+m(IR_DEP_ANO)+" por ano.")+
+      campo("saude","Despesas médicas no ano",c.saude?brl(c.saude):"","Sem limite de dedução; precisa de recibo.")+
+      campo("instr","Educação (formal) no ano",c.instr?brl(c.instr):"","Limite de "+m(IR_INSTR)+" por pessoa.")+
+      campo("irrf","IR retido no ano (informe)",c.irrf==null?"":brl(c.irrf),"Vazio = estimativa de "+m(R.irrfEst)+". Use o valor do informe da SEFAZ.")+
+      '</div><div class="ir-opts"><label><input type="checkbox" data-ir="proj" '+(c.proj?"checked":"")+'> Projetar a receita do MEI até dezembro'+(mei.fator>1?' (×'+mei.fator.toFixed(2).replace(".",",")+')':'')+'</label>'+
+      '<label>Lucro do MEI: <select class="campo ir-sel" data-ir="contab"><option value="nao" '+(c.contab==="nao"?"selected":"")+'>sem contabilidade (percentual presumido)</option>'+
+      '<option value="sim" '+(c.contab==="sim"?"selected":"")+'>com contador (todo o lucro isento)</option></select></label></div></section>';
+    h+='<section class="ir-card"><h3>2. MEI — Tâmara Cavalcante Organizer</h3><table class="ir-tab"><tbody>'+
+      lin("Receita de serviços (isenção presumida de 32%)",mei.serv)+lin("Receita de produtos (isenção presumida de 8%)",mei.prod)+
+      lin("Receita bruta considerada",R.rec,"t")+lin("(−) Despesas do negócio lançadas no app",mei.desp)+lin("Lucro do MEI",R.lucro,"t")+
+      lin("Parcela isenta (rendimento isento, código 13)",R.isento)+
+      lin("Excedente tributável (soma ao salário)",R.exced,R.exced>0?"neg":"")+'</tbody></table>'+
+      '<p class="sub">'+(mei.n?mei.n+' lançamentos do Negócio em '+IR_ANO+' considerados.':'Ainda não há lançamentos do Negócio em '+IR_ANO+'.')+
+      ' O que o MEI lucrou acima do percentual presumido só é isento se houver escrituração contábil (contador).</p></section>';
+    const col=(t,ded,base,imp,red,dev,best)=>'<td class="'+(best?"ir-best":"")+'"><b>'+t+'</b>'+(best?' <small>melhor</small>':'')+
+      '<div>Deduções: '+m(ded)+'</div><div>Base de cálculo: '+m(base)+'</div><div>Imposto pela tabela: '+m(imp)+'</div>'+
+      '<div>Redutor (Lei 15.270): −'+m(red)+'</div><div class="ir-dev">Imposto devido: '+m(dev)+'</div></td>';
+    h+='<section class="ir-card"><h3>3. Cálculo anual</h3><table class="ir-tab"><tbody>'+
+      lin("Salário bruto anual (12 meses)",R.sal12)+lin("(+) Excedente tributável do MEI",R.exced)+lin("Rendimentos tributáveis",R.trib,"t")+'</tbody></table>'+
+      '<table class="ir-cmp"><tr>'+col("Declaração completa",R.dedC,R.baseC,R.impC,R.redC,R.devC,R.melhor==="C")+
+      col("Declaração simplificada",R.dedS,R.baseS,R.impS,R.redS,R.devS,R.melhor==="S")+'</tr></table>'+
+      '<table class="ir-tab"><tbody>'+lin("Imposto devido (melhor modelo)",R.devido,"t")+lin("(−) IR retido na fonte no ano",R.credito)+
+      lin(titRes,Math.abs(R.saldo),"t")+'</tbody></table>'+
+      '<p class="sub">O 13º salário é tributado só na fonte (exclusivo), estimado em '+m(R.ir13)+' e fora desta conta. '+
+      'Quem ganha até R$ 5.000/mês fica isento; entre R$ 5.000 e R$ 7.350 o imposto é reduzido; acima disso paga pela tabela cheia.</p></section>';
+    h+='<section class="ir-card"><h3>4. Onde cada valor vai na declaração</h3><table class="ir-tab"><tbody>'+
+      lin("Rendimentos tributáveis recebidos de PJ — SEFAZ-MG (bruto)",R.sal12)+lin("Contribuição previdenciária oficial (RPPS)",R.prev12)+
+      lin("Imposto retido na fonte (informe de rendimentos)",R.credito)+
+      lin("Rendimentos isentos, código 13 — lucros do MEI (CNPJ do MEI)",R.isento)+
+      (R.exced>0?lin("Rendimentos tributáveis recebidos de PJ — excedente do MEI",R.exced):"")+
+      '</tbody></table><p class="sub">Informe também o CNPJ do MEI em Bens e Direitos (como empresa), o saldo das contas e das aplicações em 31/12 e as dívidas, se houver. '+
+      'A Receita pré-preenche parte disso — confira tudo contra o informe da SEFAZ-MG e os extratos do BB.</p></section>';
+    const avisos=['Isto é uma <b>simulação</b>, não substitui o programa da Receita nem o seu contador.'];
+    if(R.rendaGlobal>600000) avisos.push('Sua renda total passa de R$ 600.000/ano: entra o imposto mínimo (IRPFM), que esta simulação não calcula.');
+    if(R.rec>81000) avisos.push('A receita do MEI passou de R$ 81.000: veja o limite do MEI na aba Negócio.');
+    h+='<p class="nota-linha">'+avisos.join(' ')+' Valores de 2026 (tabela, redutor, desconto simplificado de até '+m(IR_SIMPL_MAX)+') conforme reportado em fontes públicas; confirme na Receita antes de declarar.</p>';
+    corpo.innerHTML='<div class="ir-wrap">'+h+'</div>';
+
+    corpo.onchange=e=>{
+      const el=e.target.closest("[data-ir]"); if(!el) return;
+      const k=el.dataset.ir, d=dados.irpf;
+      if(k==="proj") d.proj=el.checked;
+      else if(k==="contab") d.contab=el.value;
+      else{
+        const t=String(el.value||"").trim(), n=t?numero(t.replace("−","-")):0;
+        if(k==="irrf") d.irrf=t?Math.max(0,n):null;
+        else if(k==="dep") d.dep=Math.max(0,Math.round(n));
+        else if(k==="prevPct") d.prevPct=Math.min(30,Math.max(0,n));
+        else { d[k]=Math.max(0,n); if(k==="salario") d.salarioEditado=true; }
+      }
+      salvar(); pvManterFoco(renderIRPF);
+    };
+  }
+
   function render(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
     marcarConta();
@@ -2736,6 +2889,7 @@
     if(ui.conta==="dash"){ renderDashboard(); return; }
     if(ui.conta==="prev"){ renderPrevisao(); return; }
     if(ui.conta==="fluxo"){ renderFluxoPJ(); return; }
+    if(ui.conta==="irpf"){ renderIRPF(); return; }
     if(!ui.view) ui.view="mes";
 
     const meses=mesesComDados();
