@@ -2771,7 +2771,7 @@
     return r2(Math.max(0,imp-red));
   }
   function irpfNorm(){
-    const d=Object.assign({salario:20000,prevPct:11,dep:0,saude:0,instr:0,irrf:null,contab:"nao",proj:true,salarioEditado:false},dados.irpf||{});
+    const d=Object.assign({salario:0,prevPct:11,dep:0,saude:0,instr:0,irrf:null,contab:"nao",base:"lucro",proj:true},dados.irpf||{});
     dados.irpf=d; return d;
   }
   function irpfMei(proj){
@@ -2780,8 +2780,9 @@
     let serv=s(L.filter(l=>l.valor>0&&l.categoria==="Receita de cliente"));
     let prod=s(L.filter(l=>l.valor>0&&l.categoria==="Produtos para venda"));
     let desp=-s(L.filter(l=>l.valor<0&&!ehRetirada(l)));
+    let ret=-s(L.filter(ehRetirada));
     const hoje=new Date(), f=(proj&&String(hoje.getFullYear())===IR_ANO)?12/(hoje.getMonth()+1):1;
-    return {serv:serv*f,prod:prod*f,desp:desp*f,fator:f,n:L.length};
+    return {serv:serv*f,prod:prod*f,desp:desp*f,ret:ret*f,fator:f,n:L.length};
   }
   function irpfCalc(c,mei){
     const sal12=c.salario*12, prevMes=c.salario*c.prevPct/100, prev12=prevMes*12;
@@ -2791,8 +2792,10 @@
     const ir13=r2(irTab(IR_TAB_MENSAL,base13));               // 13º: tributação exclusiva na fonte
     const rec=mei.serv+mei.prod, lucro=Math.max(0,rec-mei.desp);
     const pres=mei.serv*.32+mei.prod*.08;
-    const isento = c.contab==="sim" ? lucro : Math.min(pres,lucro);
-    const exced  = c.contab==="sim" ? 0 : Math.max(0,lucro-pres);
+    // valor distribuído ao titular: o lucro apurado nos lançamentos (padrão) ou só as retiradas lançadas como pró-labore
+    const distr = c.base==="ret" ? Math.min(mei.ret,lucro) : lucro;
+    const isento = c.contab==="sim" ? distr : Math.min(pres,distr);
+    const exced  = c.contab==="sim" ? 0 : Math.max(0,distr-pres);
     const trib=sal12+exced;
     const redutor=(imp)=> trib<=60000 ? imp : trib<=88200 ? Math.min(imp,11743.44-0.133145*trib) : 0;
     // completa
@@ -2805,14 +2808,14 @@
     const melhor=devS<devC?"S":"C", devido=Math.min(devC,devS);
     const credito=(c.irrf==null?irrfEst:c.irrf);
     return {sal12,prev12,irrfEst,ir13,rec,lucro,pres,isento,exced,trib,dedC,baseC,impC,devC,dedS,baseS,impS,devS,melhor,devido,credito,
-            saldo:r2(devido-credito),instr,rendaGlobal:trib+isento+c.salario,redC:redutor(impC),redS:redutor(impS)};
+            saldo:r2(devido-credito),instr,distr,rendaGlobal:trib+isento+c.salario,redC:redutor(impC),redS:redutor(impS)};
   }
 
   function renderIRPF(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
     const c=irpfNorm(), mei=irpfMei(c.proj), R=irpfCalc(c,mei);
     $("#abas").innerHTML='<div class="periodo"><span class="sub" style="margin:0"><b>Imposto de Renda.</b> Simulação do IRPF do ano-base '+IR_ANO+
-      ' (declaração em 2027), com as regras novas da Lei 15.270/2025. A receita do MEI vem dos lançamentos do app; o resto você edita.</span></div>';
+      ' (declaração em 2027), com as regras novas da Lei 15.270/2025. Calculado a partir dos lançamentos do Negócio — MEI; salário e deduções são opcionais.</span></div>';
     const m=v=>'R$ '+brl(v);
     const campo=(k,rot,val,dica)=>'<label class="ir-c"><span class="rot">'+rot+'</span><input class="campo ir-in" data-ir="'+k+'" data-foco="ir:'+k+'" inputmode="decimal" value="'+(val===""?"":esc(val))+'" placeholder="0,00">'+(dica?'<small>'+dica+'</small>':'')+'</label>';
     const lin=(rot,v,cls)=>'<tr class="'+(cls||"")+'"><td>'+rot+'</td><td>'+(typeof v==="number"?m(v):v)+'</td></tr>';
@@ -2821,12 +2824,11 @@
     const titRes=zero?"Sem imposto a pagar nem a restituir":pagar?"Imposto a pagar":"Imposto a restituir";
     const mod=R.melhor==="S"?"declaração simplificada":"declaração completa";
     let h='';
-    if(!c.salarioEditado) h+='<div class="ir-aviso">O salário de <b>R$ 20.000,00/mês</b> é só um valor de exemplo. Preencha o seu salário bruto (SEFAZ-MG) e o IR retido do informe de rendimentos para a simulação ficar real.</div>';
     h+='<section class="ir-card ir-res"><span class="rot">Resultado da simulação · ano-base '+IR_ANO+'</span>'+
       '<div class="num" style="color:'+corRes+'">'+m(Math.abs(R.saldo))+'</div><p class="sub" style="font-size:14px">'+titRes+' · melhor modelo: <b>'+mod+'</b>'+
       ' · alíquota efetiva '+(R.trib>0?(R.devido/R.trib*100).toFixed(1).replace(".",","):"0,0")+'% dos rendimentos tributáveis</p></section>';
-    h+='<section class="ir-card"><h3>1. Seus dados</h3><div class="ir-grid">'+
-      campo("salario","Salário bruto mensal",brl(c.salario),"Auditor fiscal — SEFAZ-MG. Valor mensal, antes dos descontos.")+
+    h+='<section class="ir-card"><h3>1. Outras rendas e deduções (opcional)</h3><div class="ir-grid">'+
+      campo("salario","Outro salário bruto mensal (opcional)",c.salario?brl(c.salario):"","Ex.: SEFAZ-MG. Deixe vazio para simular só o MEI.")+
       campo("prevPct","Previdência oficial (%)",String(c.prevPct).replace(".",","),"Desconto do regime próprio (RPPS) sobre o salário.")+
       campo("dep","Dependentes",String(c.dep),"Cada um deduz "+m(IR_DEP_ANO)+" por ano.")+
       campo("saude","Despesas médicas no ano",c.saude?brl(c.saude):"","Sem limite de dedução; precisa de recibo.")+
@@ -2834,14 +2836,17 @@
       campo("irrf","IR retido no ano (informe)",c.irrf==null?"":brl(c.irrf),"Vazio = estimativa de "+m(R.irrfEst)+". Use o valor do informe da SEFAZ.")+
       '</div><div class="ir-opts"><label><input type="checkbox" data-ir="proj" '+(c.proj?"checked":"")+'> Projetar a receita do MEI até dezembro'+(mei.fator>1?' (×'+mei.fator.toFixed(2).replace(".",",")+')':'')+'</label>'+
       '<label>Lucro do MEI: <select class="campo ir-sel" data-ir="contab"><option value="nao" '+(c.contab==="nao"?"selected":"")+'>sem contabilidade (percentual presumido)</option>'+
-      '<option value="sim" '+(c.contab==="sim"?"selected":"")+'>com contador (todo o lucro isento)</option></select></label></div></section>';
+      '<option value="sim" '+(c.contab==="sim"?"selected":"")+'>com contador (todo o lucro isento)</option></select></label>'+
+      '<label>Valor que passou para a Tâmara: <select class="campo ir-sel" data-ir="base"><option value="lucro" '+(c.base==="lucro"?"selected":"")+'>todo o lucro apurado</option>'+
+      '<option value="ret" '+(c.base==="ret"?"selected":"")+'>só as retiradas lançadas (pró-labore)</option></select></label></div></section>';
     h+='<section class="ir-card"><h3>2. MEI — Tâmara Cavalcante Organizer</h3><table class="ir-tab"><tbody>'+
       lin("Receita de serviços (isenção presumida de 32%)",mei.serv)+lin("Receita de produtos (isenção presumida de 8%)",mei.prod)+
-      lin("Receita bruta considerada",R.rec,"t")+lin("(−) Despesas do negócio lançadas no app",mei.desp)+lin("Lucro do MEI",R.lucro,"t")+
-      lin("Parcela isenta (rendimento isento, código 13)",R.isento)+
+      lin("Receita bruta considerada",R.rec,"t")+lin("(−) Despesas do negócio lançadas no app",mei.desp)+lin("Lucro do MEI",R.lucro,"t")+lin("Retiradas lançadas como pró-labore",mei.ret)+lin("Valor considerado como distribuído à titular",R.distr)+
+      lin("Isenção presumida (32% e 8% da receita)",R.pres)+
+      lin("Parcela isenta (rendimento isento, código 13)",R.isento,"t")+
       lin("Excedente tributável (soma ao salário)",R.exced,R.exced>0?"neg":"")+'</tbody></table>'+
       '<p class="sub">'+(mei.n?mei.n+' lançamentos do Negócio em '+IR_ANO+' considerados.':'Ainda não há lançamentos do Negócio em '+IR_ANO+'.')+
-      ' O que o MEI lucrou acima do percentual presumido só é isento se houver escrituração contábil (contador).</p></section>';
+      ' Como o MEI declara: a parte isenta é o percentual presumido da receita bruta (32% serviços, 8% comércio); o que a titular recebeu além disso só é isento com escrituração contábil — sem ela, entra como rendimento tributável.</p></section>';
     const col=(t,ded,base,imp,red,dev,best)=>'<td class="'+(best?"ir-best":"")+'"><b>'+t+'</b>'+(best?' <small>melhor</small>':'')+
       '<div>Deduções: '+m(ded)+'</div><div>Base de cálculo: '+m(base)+'</div><div>Imposto pela tabela: '+m(imp)+'</div>'+
       '<div>Redutor (Lei 15.270): −'+m(red)+'</div><div class="ir-dev">Imposto devido: '+m(dev)+'</div></td>';
@@ -2862,7 +2867,8 @@
       'A Receita pré-preenche parte disso — confira tudo contra o informe da SEFAZ-MG e os extratos do BB.</p></section>';
     const avisos=['Isto é uma <b>simulação</b>, não substitui o programa da Receita nem o seu contador.'];
     if(R.rendaGlobal>600000) avisos.push('Sua renda total passa de R$ 600.000/ano: entra o imposto mínimo (IRPFM), que esta simulação não calcula.');
-    if(R.rec>81000) avisos.push('A receita do MEI passou de R$ 81.000: veja o limite do MEI na aba Negócio.');
+    if(R.rec>97200) avisos.push('<b>Atenção:</b> a receita do MEI ('+m(R.rec)+') passou muito do limite de R$ 81.000 (tolerância de R$ 97.200): há risco de desenquadramento retroativo e o imposto real seria o de ME/Simples, não de MEI. Converse com o contador.');
+    else if(R.rec>81000) avisos.push('A receita do MEI passou de R$ 81.000: veja o limite do MEI na aba Negócio.');
     h+='<p class="nota-linha">'+avisos.join(' ')+' Valores de 2026 (tabela, redutor, desconto simplificado de até '+m(IR_SIMPL_MAX)+') conforme reportado em fontes públicas; confirme na Receita antes de declarar.</p>';
     corpo.innerHTML='<div class="ir-wrap">'+h+'</div>';
 
@@ -2876,7 +2882,7 @@
         if(k==="irrf") d.irrf=t?Math.max(0,n):null;
         else if(k==="dep") d.dep=Math.max(0,Math.round(n));
         else if(k==="prevPct") d.prevPct=Math.min(30,Math.max(0,n));
-        else { d[k]=Math.max(0,n); if(k==="salario") d.salarioEditado=true; }
+        else { d[k]=Math.max(0,n); }
       }
       salvar(); pvManterFoco(renderIRPF);
     };
