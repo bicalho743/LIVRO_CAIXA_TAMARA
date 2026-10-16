@@ -2771,7 +2771,7 @@
     return r2(Math.max(0,imp-red));
   }
   function irpfNorm(){
-    const d=Object.assign({salario:0,prevPct:11,dep:0,saude:0,instr:0,irrf:null,contab:"nao",base:"lucro",proj:true},dados.irpf||{});
+    const d=Object.assign({salario:0,prevPct:11,dep:0,saude:0,unimed:0,saudeSel:{},instr:0,irrf:null,contab:"nao",base:"lucro",proj:true},dados.irpf||{});
     dados.irpf=d; return d;
   }
   function irpfMei(proj){
@@ -2783,6 +2783,17 @@
     let ret=-s(L.filter(ehRetirada));
     const hoje=new Date(), f=(proj&&String(hoje.getFullYear())===IR_ANO)?12/(hoje.getMonth()+1):1;
     return {serv:serv*f,prod:prod*f,desp:desp*f,ret:ret*f,fator:f,n:L.length};
+  }
+  // despesas de saúde achadas nos lançamentos (por palavra no histórico); remédio, estética e academia NÃO entram
+  const IR_SAUDE_FORTE=/odont|dentis|ortod|psic[oó]l|psiqui|terap|unimed|laborat|hospital|fisio|nutri|dermat|oftalm|ginec|cardio|exame|consulta|m[eé]dic/i;
+  const IR_SAUDE_TALVEZ=/cl[ií]nica|\bdra?\./i;
+  function irpfSaudeItens(c){
+    return dados.lancamentos.filter(l=>!l.ignorado&&l.valor<0&&l.data.slice(0,4)===IR_ANO&&ehMov(l)&&l.categoria!=="Farmácia"&&
+        (IR_SAUDE_FORTE.test(l.hist||"")||IR_SAUDE_TALVEZ.test(l.hist||"")))
+      .map(l=>{ const pj=l.origem==="pj", forte=IR_SAUDE_FORTE.test(l.hist||"");
+        const pad=forte&&!pj, esc_=c.saudeSel&&c.saudeSel[l.id];
+        return {id:l.id,data:l.data,hist:String(l.hist||"").replace(/^(Pix - Enviado|Compra com Cartão) - \d\d\/\d\d( \d\d:\d\d)? ?/,""),valor:-l.valor,pj:pj,forte:forte,sel:esc_==null?pad:!!esc_}; })
+      .sort((a,b)=>a.data<b.data?-1:1);
   }
   function irpfCalc(c,mei){
     const sal12=c.salario*12, prevMes=c.salario*c.prevPct/100, prev12=prevMes*12;
@@ -2813,7 +2824,9 @@
 
   function renderIRPF(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
-    const c=irpfNorm(), mei=irpfMei(c.proj), R=irpfCalc(c,mei);
+    const c0=irpfNorm(), mei=irpfMei(c0.proj);
+    const itensS=irpfSaudeItens(c0), saudeLanc=itensS.filter(i=>i.sel).reduce((t,i)=>t+i.valor,0);
+    const c=Object.assign({},c0,{saude:c0.saude+c0.unimed+saudeLanc}), R=irpfCalc(c,mei);
     $("#abas").innerHTML='<div class="periodo"><span class="sub" style="margin:0"><b>Imposto de Renda.</b> Simulação do IRPF do ano-base '+IR_ANO+
       ' (declaração em 2027), com as regras novas da Lei 15.270/2025. Calculado a partir dos lançamentos do Negócio — MEI; salário e deduções são opcionais.</span></div>';
     const m=v=>'R$ '+brl(v);
@@ -2831,7 +2844,8 @@
       campo("salario","Outro salário bruto mensal (opcional)",c.salario?brl(c.salario):"","Ex.: SEFAZ-MG. Deixe vazio para simular só o MEI.")+
       campo("prevPct","Previdência oficial (%)",String(c.prevPct).replace(".",","),"Desconto do regime próprio (RPPS) sobre o salário.")+
       campo("dep","Dependentes",String(c.dep),"Cada um deduz "+m(IR_DEP_ANO)+" por ano.")+
-      campo("saude","Despesas médicas no ano",c.saude?brl(c.saude):"","Sem limite de dedução; precisa de recibo.")+
+      campo("unimed","Plano Unimed — sua parte paga no ano",c0.unimed?brl(c0.unimed):"","Só a parte que ela paga (informe do plano). Não aparece nos lançamentos: lance aqui.")+
+      campo("saude","Outras despesas médicas no ano",c0.saude?brl(c0.saude):"","Além das listadas abaixo. Sem limite; precisa de recibo.")+
       campo("instr","Educação (formal) no ano",c.instr?brl(c.instr):"","Limite de "+m(IR_INSTR)+" por pessoa.")+
       campo("irrf","IR retido no ano (informe)",c.irrf==null?"":brl(c.irrf),"Vazio = estimativa de "+m(R.irrfEst)+". Use o valor do informe da SEFAZ.")+
       '</div><div class="ir-opts"><label><input type="checkbox" data-ir="proj" '+(c.proj?"checked":"")+'> Projetar a receita do MEI até dezembro'+(mei.fator>1?' (×'+mei.fator.toFixed(2).replace(".",",")+')':'')+'</label>'+
@@ -2847,6 +2861,12 @@
       lin("Excedente tributável (soma ao salário)",R.exced,R.exced>0?"neg":"")+'</tbody></table>'+
       '<p class="sub">'+(mei.n?mei.n+' lançamentos do Negócio em '+IR_ANO+' considerados.':'Ainda não há lançamentos do Negócio em '+IR_ANO+'.')+
       ' Como o MEI declara: a parte isenta é o percentual presumido da receita bruta (32% serviços, 8% comércio); o que a titular recebeu além disso só é isento com escrituração contábil — sem ela, entra como rendimento tributável.</p></section>';
+    h+='<section class="ir-card"><h3>Despesas de saúde encontradas nos lançamentos</h3>'+
+      (itensS.length?'<table class="ir-tab"><tbody>'+itensS.map(i=>'<tr><td><label><input type="checkbox" data-irsel="'+esc(i.id)+'" '+(i.sel?"checked":"")+'> '+
+        esc(i.data.split("-").reverse().join("/"))+' · '+esc(i.hist)+(i.pj?' <small class="neg">pago pela conta CNPJ</small>':'')+(!i.forte?' <small>confirme a especialidade</small>':'')+'</label></td><td>'+m(i.valor)+'</td></tr>').join("")+
+        lin("Total marcado (dedutível)",saudeLanc,"t")+'</tbody></table>':'<p class="sub">Nenhum dentista, médico, psicólogo ou clínica encontrado nos lançamentos de '+IR_ANO+'.</p>')+
+      '<p class="sub">Entram só consultas, dentista, psicólogo, exames, hospital e plano de saúde, com recibo/nota em nome da Tâmara (CPF ou CNPJ do profissional). <b>Remédio de farmácia, estética e academia não são dedutíveis.</b> '+
+      'O plano Unimed não está nos lançamentos: preencha o valor no campo acima. O que foi pago pela conta do CNPJ vem desmarcado, porque a despesa precisa ser paga por ela como pessoa física.</p></section>';
     const col=(t,ded,base,imp,red,dev,best)=>'<td class="'+(best?"ir-best":"")+'"><b>'+t+'</b>'+(best?' <small>melhor</small>':'')+
       '<div>Deduções: '+m(ded)+'</div><div>Base de cálculo: '+m(base)+'</div><div>Imposto pela tabela: '+m(imp)+'</div>'+
       '<div>Redutor (Lei 15.270): −'+m(red)+'</div><div class="ir-dev">Imposto devido: '+m(dev)+'</div></td>';
@@ -2873,6 +2893,8 @@
     corpo.innerHTML='<div class="ir-wrap">'+h+'</div>';
 
     corpo.onchange=e=>{
+      const sel=e.target.closest("[data-irsel]");
+      if(sel){ const d=dados.irpf; d.saudeSel=d.saudeSel||{}; d.saudeSel[sel.dataset.irsel]=sel.checked; salvar(); renderIRPF(); return; }
       const el=e.target.closest("[data-ir]"); if(!el) return;
       const k=el.dataset.ir, d=dados.irpf;
       if(k==="proj") d.proj=el.checked;
