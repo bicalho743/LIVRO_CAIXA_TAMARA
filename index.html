@@ -2772,6 +2772,7 @@
   const IR_ANO = "2026";
   const IR_TAB_ANUAL  = [[29145.60,0,0],[33919.80,.075,2185.92],[45012.60,.15,4729.92],[55976.16,.225,8105.88],[Infinity,.275,10904.76]];
   const IR_TAB_MENSAL = [[2428.80,0,0],[2826.65,.075,182.16],[3751.05,.15,394.16],[4664.68,.225,675.49],[Infinity,.275,908.73]];
+  const IR_INSS_MEI = 81.05; // 5% do salário mínimo de 2026 (R$ 1.621), parte de previdência do DAS do MEI
   const IR_DEP_ANO = 2275.08, IR_DEP_MES = 189.59, IR_INSTR = 3561.50, IR_SIMPL_MAX = 17640, IR_SIMPL_MES = 607.20;
   const irTab = (tab,base)=>{ if(!(base>0)) return 0; const f=tab.find(x=>base<=x[0]); return Math.max(0,base*f[1]-f[2]); };
   const r2 = v => Math.round(v*100)/100;
@@ -2784,7 +2785,8 @@
     return r2(Math.max(0,imp-red));
   }
   function irpfNorm(){
-    const d=Object.assign({salario:0,prevPct:11,dep:0,saude:0,unimed:0,saudeSel:{},instr:0,irrf:null,contab:"nao",base:"lucro",proj:false},dados.irpf||{});
+    const d=Object.assign({saude:0,unimed:0,saudeSel:{},inss:null,contab:"nao",base:"lucro",proj:false},dados.irpf||{});
+    d.salario=0; d.dep=0; d.instr=0; d.irrf=null; // ela só recebe pelo MEI: sem salário, dependentes, educação nem IR retido
     dados.irpf=d; return d;
   }
   function irpfMei(proj){
@@ -2818,11 +2820,8 @@
       .sort((a,b)=>a.data<b.data?-1:1);
   }
   function irpfCalc(c,mei){
-    const sal12=c.salario*12, prevMes=c.salario*c.prevPct/100, prev12=prevMes*12;
-    const irrfMes12=irrfMes(c.salario,prevMes,c.dep,true);
-    const irrfEst=r2(irrfMes12*12);
-    const base13=Math.min(c.salario-prevMes-c.dep*IR_DEP_MES, c.salario-IR_SIMPL_MES);
-    const ir13=r2(irTab(IR_TAB_MENSAL,base13));               // 13º: tributação exclusiva na fonte
+    const sal12=0, prev12=(c.inss==null?IR_INSS_MEI*12:c.inss);
+    const irrfEst=0, ir13=0;
     const rec=mei.serv+mei.prod, lucro=Math.max(0,rec-mei.desp);
     const pres=mei.serv*.32+mei.prod*.08;
     // valor distribuído ao titular: o lucro apurado nos lançamentos (padrão) ou só as retiradas lançadas como pró-labore
@@ -2890,14 +2889,10 @@
     h+='<section class="ir-card ir-res"><span class="rot">Resultado da simulação · ano-base '+IR_ANO+'</span>'+
       '<div class="num" style="color:'+corRes+'">'+m(Math.abs(R.saldo))+'</div><p class="sub" style="font-size:14px">'+titRes+' · melhor modelo: <b>'+mod+'</b>'+
       ' · alíquota efetiva '+(R.trib>0?(R.devido/R.trib*100).toFixed(1).replace(".",","):"0,0")+'% dos rendimentos tributáveis</p></section>';
-    h+='<section class="ir-card"><h3>1. Outras rendas e deduções (opcional)</h3><div class="ir-grid">'+
-      campo("salario","Outro salário bruto mensal (opcional)",c.salario?brl(c.salario):"","Ex.: SEFAZ-MG. Deixe vazio para simular só o MEI.")+
-      campo("prevPct","Previdência oficial (%)",String(c.prevPct).replace(".",","),"Desconto do regime próprio (RPPS) sobre o salário.")+
-      campo("dep","Dependentes",String(c.dep),"Cada um deduz "+m(IR_DEP_ANO)+" por ano.")+
+    h+='<section class="ir-card"><h3>1. Deduções</h3><div class="ir-grid">'+
+      campo("inss","INSS do MEI pago no ano (DAS)",c0.inss==null?"":brl(c0.inss),"Previdência oficial dela. Vazio = "+m(IR_INSS_MEI)+" × 12 = "+m(IR_INSS_MEI*12)+" (5% do salário mínimo de R$ 1.621).")+
       campo("unimed","Plano Unimed — sua parte paga no ano",c0.unimed?brl(c0.unimed):"","Só a parte que ela paga (informe do plano). Não aparece nos lançamentos: lance aqui.")+
       campo("saude","Outras despesas médicas no ano",c0.saude?brl(c0.saude):"","Além das listadas abaixo. Sem limite; precisa de recibo.")+
-      campo("instr","Educação (formal) no ano",c.instr?brl(c.instr):"","Limite de "+m(IR_INSTR)+" por pessoa.")+
-      campo("irrf","IR retido no ano (informe)",c.irrf==null?"":brl(c.irrf),"Vazio = estimativa de "+m(R.irrfEst)+". Use o valor do informe da SEFAZ.")+
       '</div><div class="ir-opts"><label><input type="checkbox" data-ir="proj" '+(c.proj?"checked":"")+'> Projetar a receita do MEI até dezembro'+(mei.fator>1?' (×'+mei.fator.toFixed(2).replace(".",",")+')':'')+'</label>'+
       '<label>Lucro do MEI: <select class="campo ir-sel" data-ir="contab"><option value="nao" '+(c.contab==="nao"?"selected":"")+'>sem contabilidade (percentual presumido)</option>'+
       '<option value="sim" '+(c.contab==="sim"?"selected":"")+'>com contador (todo o lucro isento)</option></select></label>'+
@@ -2933,20 +2928,19 @@
       '<div>Deduções: '+m(ded)+'</div><div>Base de cálculo: '+m(base)+'</div><div>Imposto pela tabela: '+m(imp)+'</div>'+
       '<div>Redutor (Lei 15.270): −'+m(red)+'</div><div class="ir-dev">Imposto devido: '+m(dev)+'</div></td>';
     h+='<section class="ir-card"><h3>3. Cálculo anual</h3><table class="ir-tab"><tbody>'+
-      lin("Salário bruto anual (12 meses)",R.sal12)+lin("(+) Excedente tributável do MEI",R.exced)+lin("Rendimentos tributáveis",R.trib,"t")+'</tbody></table>'+
+      lin("Excedente tributável do MEI",R.exced)+lin("Rendimentos tributáveis",R.trib,"t")+'</tbody></table>'+
       '<table class="ir-cmp"><tr>'+col("Declaração completa",R.dedC,R.baseC,R.impC,R.redC,R.devC,R.melhor==="C")+
       col("Declaração simplificada",R.dedS,R.baseS,R.impS,R.redS,R.devS,R.melhor==="S")+'</tr></table>'+
-      '<table class="ir-tab"><tbody>'+lin("Imposto devido (melhor modelo)",R.devido,"t")+lin("(−) IR retido na fonte no ano",R.credito)+
+      '<table class="ir-tab"><tbody>'+lin("Imposto devido (melhor modelo)",R.devido,"t")+
       lin(titRes,Math.abs(R.saldo),"t")+'</tbody></table>'+
-      '<p class="sub">O 13º salário é tributado só na fonte (exclusivo), estimado em '+m(R.ir13)+' e fora desta conta. '+
-      'Quem ganha até R$ 5.000/mês fica isento; entre R$ 5.000 e R$ 7.350 o imposto é reduzido; acima disso paga pela tabela cheia.</p></section>';
+      '<p class="sub">Quem recebe até R$ 5.000/mês (R$ 60.000/ano) fica isento; entre R$ 5.000 e R$ 7.350 por mês o imposto é reduzido; acima disso paga pela tabela cheia. '+
+      'Sem salário, não há imposto retido na fonte: o que der aqui é pago na própria declaração.</p></section>';
     h+='<section class="ir-card"><h3>4. Onde cada valor vai na declaração</h3><table class="ir-tab"><tbody>'+
-      lin("Rendimentos tributáveis recebidos de PJ — SEFAZ-MG (bruto)",R.sal12)+lin("Contribuição previdenciária oficial (RPPS)",R.prev12)+
-      lin("Imposto retido na fonte (informe de rendimentos)",R.credito)+
+      lin("Contribuição previdenciária oficial — INSS do MEI (DAS)",R.prev12)+
       lin("Rendimentos isentos, código 13 — lucros do MEI (CNPJ do MEI)",R.isento)+
       (R.exced>0?lin("Rendimentos tributáveis recebidos de PJ — excedente do MEI",R.exced):"")+
       '</tbody></table><p class="sub">Informe também o CNPJ do MEI em Bens e Direitos (como empresa), o saldo das contas e das aplicações em 31/12 e as dívidas, se houver. '+
-      'A Receita pré-preenche parte disso — confira tudo contra o informe da SEFAZ-MG e os extratos do BB.</p></section>';
+      'A Receita pré-preenche parte disso — confira tudo contra os extratos do BB e os recibos.</p></section>';
     const avisos=['Isto é uma <b>simulação</b>, não substitui o programa da Receita nem o seu contador.'];
     if(R.rendaGlobal>600000) avisos.push('Sua renda total passa de R$ 600.000/ano: entra o imposto mínimo (IRPFM), que esta simulação não calcula.');
     if(R.rec>97200) avisos.push('<b>Atenção:</b> a receita do MEI ('+m(R.rec)+') passou muito do limite de R$ 81.000 (tolerância de R$ 97.200): há risco de desenquadramento retroativo e o imposto real seria o de ME/Simples, não de MEI. Converse com o contador.');
@@ -2966,9 +2960,7 @@
       else if(k==="contab") d.contab=el.value;
       else{
         const t=String(el.value||"").trim(), n=t?numero(t.replace("−","-")):0;
-        if(k==="irrf") d.irrf=t?Math.max(0,n):null;
-        else if(k==="dep") d.dep=Math.max(0,Math.round(n));
-        else if(k==="prevPct") d.prevPct=Math.min(30,Math.max(0,n));
+        if(k==="inss") d.inss=t?Math.max(0,n):null;
         else { d[k]=Math.max(0,n); }
       }
       salvar(); pvManterFoco(renderIRPF);
