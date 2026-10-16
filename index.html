@@ -680,6 +680,16 @@
   .ir-cmp td.ir-best{border-color:var(--verde);background:#F2F6F3}
   .ir-cmp small{color:var(--verde);font-weight:600}
   .ir-dev{margin-top:4px;font-family:var(--serif);font-size:17px;font-weight:600}
+  .ir-clk{cursor:pointer}.ir-clk:hover td{background:#F7F4EC}
+  .ir-clk td:last-child{text-decoration:underline dotted;text-underline-offset:3px}
+  .ir-seta{display:inline-block;width:14px;color:var(--cinza);font-size:12px}
+  .ir-dtl>td{padding:4px 0 10px 18px!important;background:#FBFAF6}
+  .ir-dtl>td:last-child{text-align:left!important;font-family:inherit!important;font-size:13px!important;white-space:normal!important}
+  .ir-scroll{max-height:320px;overflow:auto;border:1px solid var(--linha-clara);background:#fff}
+  .ir-sub td{font-size:12.5px!important;padding:4px 8px!important}
+  .ir-sub td:last-child{font-size:14px!important}.ir-sub td.d{white-space:nowrap;color:var(--cinza);width:78px}
+  .ir-sub small{color:var(--cinza)}
+  .ir-lt{margin-top:6px;font-size:12px;color:var(--cinza);text-align:right}
   @media(max-width:640px){.ir-cmp,.ir-cmp tr,.ir-cmp td{display:block;width:auto;margin:0 0 8px}}
 </style>
 
@@ -2771,7 +2781,7 @@
     return r2(Math.max(0,imp-red));
   }
   function irpfNorm(){
-    const d=Object.assign({salario:0,prevPct:11,dep:0,saude:0,unimed:0,saudeSel:{},instr:0,irrf:null,contab:"nao",base:"lucro",proj:true},dados.irpf||{});
+    const d=Object.assign({salario:0,prevPct:11,dep:0,saude:0,unimed:0,saudeSel:{},instr:0,irrf:null,contab:"nao",base:"lucro",proj:false},dados.irpf||{});
     dados.irpf=d; return d;
   }
   function irpfMei(proj){
@@ -2782,7 +2792,9 @@
     let desp=-s(L.filter(l=>l.valor<0&&!ehRetirada(l)));
     let ret=-s(L.filter(ehRetirada));
     const hoje=new Date(), f=(proj&&String(hoje.getFullYear())===IR_ANO)?12/(hoje.getMonth()+1):1;
-    return {serv:serv*f,prod:prod*f,desp:desp*f,ret:ret*f,fator:f,n:L.length};
+    return {serv:serv*f,prod:prod*f,desp:desp*f,ret:ret*f,fator:f,n:L.length,
+      lServ:L.filter(l=>l.valor>0&&l.categoria==="Receita de cliente"),lProd:L.filter(l=>l.valor>0&&l.categoria==="Produtos para venda"),
+      lDesp:L.filter(l=>l.valor<0&&!ehRetirada(l)),lRet:L.filter(ehRetirada)};
   }
   // despesas de saúde achadas nos lançamentos (por palavra no histórico); remédio, estética e academia NÃO entram
   const IR_SAUDE_FORTE=/odont|dentis|ortod|psic[oó]l|psiqui|terap|unimed|laborat|hospital|fisio|nutri|dermat|oftalm|ginec|cardio|exame|consulta|m[eé]dic/i;
@@ -2822,6 +2834,24 @@
             saldo:r2(devido-credito),instr,distr,rendaGlobal:trib+isento+c.salario,redC:redutor(impC),redS:redutor(impS)};
   }
 
+  // ---- soma clicável: abre/fecha os lançamentos que compõem o valor ----
+  const irOpen={};
+  const irLimpaHist=h=>String(h||"").replace(/^(Pix - Enviado|Pix - Recebido|Compra com Cartão) - \d\d\/\d\d( \d\d:\d\d)? ?/,"");
+  function irItensL(L){ return L.map(l=>({data:l.data,hist:irLimpaHist(l.hist),valor:Math.abs(l.valor),cat:l.categoria||"",pj:l.origem==="pj"})).sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0); }
+  function irLista(itens,nota){
+    if(!itens.length) return '<p class="sub" style="margin:6px 0">Nenhum lançamento.</p>';
+    const tot=itens.reduce((t,i)=>t+i.valor,0);
+    return '<div class="ir-lista">'+(nota?'<p class="sub" style="margin:0 0 6px">'+nota+'</p>':'')+'<div class="ir-scroll"><table class="ir-tab ir-sub"><tbody>'+
+      itens.map(i=>'<tr><td class="d">'+esc(i.data.split("-").reverse().join("/"))+'</td><td>'+esc(i.hist)+(i.cat?' <small>'+esc(i.cat)+'</small>':'')+'</td><td>R$ '+brl(i.valor)+'</td></tr>').join("")+
+      '</tbody></table></div><div class="ir-lt">'+itens.length+' lançamento'+(itens.length>1?'s':'')+' · soma R$ '+brl(tot)+'</div></div>';
+  }
+  // linha de resumo clicável (▸/▾) que expande o HTML do detalhe logo abaixo
+  function irLinD(k,rot,v,detHtml,cls){
+    const ab=!!irOpen[k];
+    return '<tr class="ir-clk '+(cls||"")+'" data-irdet="'+k+'" tabindex="0" role="button" aria-expanded="'+ab+'"><td><span class="ir-seta">'+(ab?'▾':'▸')+'</span> '+rot+'</td><td>R$ '+brl(v)+'</td></tr>'+
+      (ab?'<tr class="ir-dtl"><td colspan="2">'+detHtml+'</td></tr>':'');
+  }
+
   function renderIRPF(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null;
     const c0=irpfNorm(), mei=irpfMei(c0.proj);
@@ -2854,19 +2884,30 @@
       '<label>Valor que passou para a Tâmara: <select class="campo ir-sel" data-ir="base"><option value="lucro" '+(c.base==="lucro"?"selected":"")+'>todo o lucro apurado</option>'+
       '<option value="ret" '+(c.base==="ret"?"selected":"")+'>só as retiradas lançadas (pró-labore)</option></select></label></div></section>';
     h+='<section class="ir-card"><h3>2. MEI — Tâmara Cavalcante Organizer</h3><table class="ir-tab"><tbody>'+
-      lin("Receita de serviços (isenção presumida de 32%)",mei.serv)+lin("Receita de produtos (isenção presumida de 8%)",mei.prod)+
-      lin("Receita bruta considerada",R.rec,"t")+lin("(−) Despesas do negócio lançadas no app",mei.desp)+lin("Lucro do MEI",R.lucro,"t")+lin("Retiradas lançadas como pró-labore",mei.ret)+lin("Valor considerado como distribuído à titular",R.distr)+
+      irLinD("serv","Receita de serviços (isenção presumida de 32%)",mei.serv,irLista(irItensL(mei.lServ),mei.fator>1?'Lançamentos reais; o valor acima está multiplicado por '+mei.fator.toFixed(2).replace(".",",")+' (projeção até dezembro).':""))+
+      irLinD("prod","Receita de produtos (isenção presumida de 8%)",mei.prod,irLista(irItensL(mei.lProd)))+
+      lin("Receita bruta considerada",R.rec,"t")+
+      irLinD("desp","(−) Despesas do negócio lançadas no app",mei.desp,irLista(irItensL(mei.lDesp),mei.fator>1?'Lançamentos reais; o valor acima está multiplicado pela projeção.':""))+
+      lin("Lucro do MEI",R.lucro,"t")+
+      irLinD("ret","Retiradas lançadas como pró-labore",mei.ret,irLista(irItensL(mei.lRet)))+lin("Valor considerado como distribuído à titular",R.distr)+
       lin("Isenção presumida (32% e 8% da receita)",R.pres)+
       lin("Parcela isenta (rendimento isento, código 13)",R.isento,"t")+
       lin("Excedente tributável (soma ao salário)",R.exced,R.exced>0?"neg":"")+'</tbody></table>'+
       '<p class="sub">'+(mei.n?mei.n+' lançamentos do Negócio em '+IR_ANO+' considerados.':'Ainda não há lançamentos do Negócio em '+IR_ANO+'.')+
       ' Como o MEI declara: a parte isenta é o percentual presumido da receita bruta (32% serviços, 8% comércio); o que a titular recebeu além disso só é isento com escrituração contábil — sem ela, entra como rendimento tributável.</p></section>';
-    h+='<section class="ir-card"><h3>Despesas de saúde encontradas nos lançamentos</h3>'+
-      (itensS.length?'<table class="ir-tab"><tbody>'+itensS.map(i=>'<tr><td><label><input type="checkbox" data-irsel="'+esc(i.id)+'" '+(i.sel?"checked":"")+'> '+
-        esc(i.data.split("-").reverse().join("/"))+' · '+esc(i.hist)+(i.pj?' <small class="neg">pago pela conta CNPJ</small>':'')+(!i.forte?' <small>confirme a especialidade</small>':'')+'</label></td><td>'+m(i.valor)+'</td></tr>').join("")+
-        lin("Total marcado (dedutível)",saudeLanc,"t")+'</tbody></table>':'<p class="sub">Nenhum dentista, médico, psicólogo ou clínica encontrado nos lançamentos de '+IR_ANO+'.</p>')+
-      '<p class="sub">Entram só consultas, dentista, psicólogo, exames, hospital e plano de saúde, com recibo/nota em nome da Tâmara (CPF ou CNPJ do profissional). <b>Remédio de farmácia, estética e academia não são dedutíveis.</b> '+
-      'O plano Unimed não está nos lançamentos: preencha o valor no campo acima. O que foi pago pela conta do CNPJ vem desmarcado, porque a despesa precisa ser paga por ela como pessoa física.</p></section>';
+    const lancFarm=dados.lancamentos.filter(l=>!l.ignorado&&l.data.slice(0,4)===IR_ANO&&ehMov(l)&&l.categoria==="Farmácia");
+    const farm=-lancFarm.reduce((t,l)=>t+l.valor,0);
+    const checklist=itensS.length?'<div class="ir-lista"><p class="sub" style="margin:0 0 6px">Marque os que têm recibo/nota em nome da Tâmara. O que foi pago pela conta do CNPJ vem desmarcado.</p><table class="ir-tab ir-sub"><tbody>'+
+      itensS.map(x=>'<tr><td><label><input type="checkbox" data-irsel="'+esc(x.id)+'" '+(x.sel?"checked":"")+'> '+esc(x.data.split("-").reverse().join("/"))+' · '+esc(x.hist)+
+        (x.pj?' <small class="neg">pago pela conta CNPJ</small>':'')+(!x.forte?' <small>confirme a especialidade</small>':'')+'</label></td><td>R$ '+brl(x.valor)+'</td></tr>').join("")+
+      '</tbody></table></div>':'<p class="sub">Nenhum dentista, médico, psicólogo ou clínica encontrado nos lançamentos de '+IR_ANO+'.</p>';
+    h+='<section class="ir-card"><h3>Despesas médicas</h3><p class="sub" style="margin-top:0">Clique em uma soma para ver os lançamentos.</p><table class="ir-tab"><tbody>'+
+      irLinD("saudeL","Dos lançamentos (marcados como dedutíveis)",saudeLanc,checklist)+
+      lin("Plano Unimed (campo acima)",c0.unimed)+lin("Outras despesas médicas (campo acima)",c0.saude)+
+      lin("Total de despesas médicas na declaração",c.saude,"t")+
+      irLinD("farm","Farmácia — não dedutível (fora da conta)",farm,irLista(irItensL(lancFarm.filter(l=>l.valor<0)),"Remédio comprado em farmácia não entra no IRPF."),"neg")+
+      '</tbody></table>'+
+      '<p class="sub">Entram só consultas, dentista, psicólogo, exames, hospital e plano de saúde, com recibo/nota em nome da Tâmara (CPF ou CNPJ do profissional). <b>Remédio de farmácia, estética e academia não são dedutíveis.</b> O plano Unimed não está nos lançamentos: preencha o valor no campo acima.</p></section>';
     const col=(t,ded,base,imp,red,dev,best)=>'<td class="'+(best?"ir-best":"")+'"><b>'+t+'</b>'+(best?' <small>melhor</small>':'')+
       '<div>Deduções: '+m(ded)+'</div><div>Base de cálculo: '+m(base)+'</div><div>Imposto pela tabela: '+m(imp)+'</div>'+
       '<div>Redutor (Lei 15.270): −'+m(red)+'</div><div class="ir-dev">Imposto devido: '+m(dev)+'</div></td>';
@@ -2892,6 +2933,9 @@
     h+='<p class="nota-linha">'+avisos.join(' ')+' Valores de 2026 (tabela, redutor, desconto simplificado de até '+m(IR_SIMPL_MAX)+') conforme reportado em fontes públicas; confirme na Receita antes de declarar.</p>';
     corpo.innerHTML='<div class="ir-wrap">'+h+'</div>';
 
+    const alterna=e=>{ const r=e.target.closest("[data-irdet]"); if(!r) return false; const k=r.dataset.irdet; irOpen[k]=!irOpen[k]; renderIRPF(); return true; };
+    corpo.onclick=e=>{ alterna(e); };
+    corpo.onkeydown=e=>{ if((e.key==="Enter"||e.key===" ")&&e.target.closest("[data-irdet]")){ e.preventDefault(); alterna(e); } };
     corpo.onchange=e=>{
       const sel=e.target.closest("[data-irsel]");
       if(sel){ const d=dados.irpf; d.saudeSel=d.saudeSel||{}; d.saudeSel[sel.dataset.irsel]=sel.checked; salvar(); renderIRPF(); return; }
