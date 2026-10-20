@@ -763,7 +763,7 @@
     <button class="conta-tab" data-conta="prev">Previsão do mês</button>
     <button class="conta-tab" data-conta="fluxo">Fluxo CNPJ</button>
     <button class="conta-tab" data-conta="irpf">Imposto de Renda</button>
-    <button class="conta-tab" data-conta="div">Dívidas e parcelas</button>
+    <button class="conta-tab" data-conta="entr">Entradas</button> <button class="conta-tab" data-conta="div">Dívidas e parcelas</button>
     <button class="conta-tab" data-conta="cai">Caixinhas</button>
     <span class="conta-sep">Conferir com o extrato:</span>
     <button class="conta-tab banco" data-conta="bcpf">Conta CPF</button>
@@ -3160,7 +3160,7 @@
     };
   }
 
-  function render(){
+  function renderEntradas(){const corpo=$("#corpo");corpo.onclick=null;corpo.onkeydown=null;corpo.onchange=null;corpo.oninput=null;$("#abas").innerHTML='<div class="periodo"><span class="sub" style="margin:0"><b>Entradas de caixa.</b> Todos os lançamentos de entrada, com a conta em que entraram e a classificação do app. Aqui é só consulta: para mudar uma classificação, use a aba Pessoal ou Negócio.</span></div>';const contaDe=l=>l.origem==="pj"?"Conta CNPJ":(l.origem==="cartao"?"Cartão":"Conta CPF");const dmy=d=>String(d||"").slice(8,10)+"/"+String(d||"").slice(5,7)+"/"+String(d||"").slice(0,4);const catDe=l=>l.categoria||"Sem categoria";const todas=dados.lancamentos.filter(l=>Number(l.valor)>0).sort((a,b)=>String(b.data).localeCompare(String(a.data)));const f=ui.ent||(ui.ent={conta:"",cat:"",mes:"",q:""});const cats=[...new Set(todas.map(catDe))].sort((a,b)=>a.localeCompare(b,"pt-BR"));const meses=[...new Set(todas.map(l=>String(l.data).slice(0,7)))].sort().reverse();const opt=(v,t,s)=>'<option value="'+esc(v)+'"'+(s?" selected":"")+'>'+esc(t)+'</option>';corpo.innerHTML='<div class="filtros"><select data-ent="conta">'+opt("","Todas as contas",!f.conta)+["Conta CPF","Conta CNPJ","Cartão"].map(c=>opt(c,c,f.conta===c)).join("")+'</select><select data-ent="cat">'+opt("","Todas as classificações",!f.cat)+cats.map(c=>opt(c,c,f.cat===c)).join("")+'</select><select data-ent="mes">'+opt("","Todos os meses",!f.mes)+meses.map(m=>opt(m,abrevMes(m),f.mes===m)).join("")+'</select><input type="search" data-ent="q" placeholder="Buscar no histórico" value="'+esc(f.q)+'"></div><div id="entRes"></div>';const pintar=()=>{const q=f.q.trim().toLowerCase();const L=todas.filter(l=>(!f.conta||contaDe(l)===f.conta)&&(!f.cat||catDe(l)===f.cat)&&(!f.mes||String(l.data).slice(0,7)===f.mes)&&(!q||(String(l.hist)+" "+(l.obs||"")).toLowerCase().includes(q)));const soma=a=>a.reduce((s,l)=>s+Number(l.valor),0);const card=(r,v,s,c)=>'<div class="dv-card" style="border-top-color:'+c+'"><div class="dv-rot">'+r+'</div><div class="dv-val">R$ '+brl(v)+'</div><div class="dv-sub">'+s+'</div></div>';const pc=["Conta CPF","Conta CNPJ","Cartão"].map(c=>[c,L.filter(x=>contaDe(x)===c)]);const rec=L.filter(l=>catDe(l)==="Receita de cliente");let h='<div class="dv-cards" style="margin:6px 0 16px">'+card("Total de entradas",soma(L),L.length+" lançamentos","#15803D")+pc.filter(p=>p[1].length).map(p=>card(p[0],soma(p[1]),p[1].length+" lançamentos","#6E8A78")).join("")+card("Só 'Receita de cliente'",soma(rec),rec.length+" lançamentos","#785E28")+'</div>';h+='<div class="fx-caixa"><table class="dv-tab"><thead><tr><th>Data</th><th>Conta</th><th>Histórico</th><th>Classificação no app</th><th>Vínculo</th><th class="n">Valor (R$)</th></tr></thead><tbody>'+L.map(l=>'<tr><td style="white-space:nowrap">'+dmy(l.data)+'</td><td>'+contaDe(l)+'</td><td>'+esc(l.hist)+'</td><td>'+esc(catDe(l))+'</td><td>'+esc(l.vinculo||"")+'</td><td class="n">'+brl(Number(l.valor))+'</td></tr>').join("")+'</tbody></table></div>';if(!L.length)h+='<div class="vazio"><p>Nenhuma entrada com esses filtros.</p></div>';$("#entRes").innerHTML=h};corpo.onchange=e=>{const el=e.target.closest("[data-ent]");if(!el)return;f[el.dataset.ent]=el.value;pintar()};corpo.oninput=e=>{const el=e.target.closest("[data-ent=q]");if(!el)return;f.q=el.value;pintar()};pintar()} function render(){
     const corpo=$("#corpo"); corpo.onclick=null; corpo.onkeydown=null; corpo.onchange=null; corpo.oninput=null;
     marcarConta();
     document.getElementById("lc").classList.toggle("tema-dash",ui.conta==="dash");
@@ -3168,7 +3168,7 @@
     if(ui.conta==="prev"){ renderPrevisao(); return; }
     if(ui.conta==="fluxo"){ renderFluxoPJ(); return; }
     if(ui.conta==="irpf"){ renderIRPF(); return; }
-    if(ui.conta==="div"){ renderDividas(); return; }
+    if(ui.conta==="entr"){ renderEntradas(); return; } if(ui.conta==="div"){ renderDividas(); return; }
     if(ui.conta==="cai"){ renderCaixinhas(); return; }
     if(!ui.view) ui.view="mes";
 
