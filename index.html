@@ -1511,7 +1511,7 @@
 
   /* Reimportar um extrato corrige valores de lançamentos que já existem
      (mesma data, documento e descrição), sem perder categoria e observações. */
-  function chaveLanc(l){ return l.data+"|"+(l.doc||"")+"|"+String(l.hist).slice(0,42)+"|"+(l.origem||"pf"); }
+  function chaveLanc(l){ return l.data+"|"+String(l.doc||"").replace(/^0+/,"")+"|"+String(l.hist).slice(0,42)+"|"+(l.origem||"pf"); }
   function mapaExistentes(){
     const m=new Map(); dados.lancamentos.forEach(l=>{ if(!l.manual&&l.origem!=="cartao") m.set(chaveLanc(l),l); }); return m;
   }
@@ -1619,7 +1619,7 @@
       if(chato==="SALDOANTERIOR"){ saldoAnt={data:iso,valor:valor}; continue; }
       if(chato==="SALDO"||chato==="SALDOATUAL"){ saldosImp.push({iso:iso,valor:valor}); continue; }
 
-      const doc=(l[iDoc]||"").trim();
+      const doc=(l[iDoc]||"").trim().replace(/^0+/,"");
       const id=iso+"|"+doc+"|"+valor.toFixed(2)+"|"+hist.slice(0,42);
       const velho=porChave.get(iso+"|"+doc+"|"+hist.slice(0,42)+"|"+(ui._contaAtual||"pf"));
       if(velho){
