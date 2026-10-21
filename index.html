@@ -396,6 +396,7 @@
   .conta-tab.banco{font-size:12.5px;padding:13px 10px;font-weight:400}
   .conta-tab.banco.ativa{color:var(--verde);border-bottom-color:var(--verde)}
   .conta-sep{white-space:nowrap}
+  @media (min-width:701px){ .conta-tabs{flex-wrap:wrap} } /* no computador as abas quebram linha: Conta CPF/CNPJ não somem à direita */
 
   .barra-periodo{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
         padding:14px 28px;border-bottom:1px solid var(--linha);background:var(--marfim)}
