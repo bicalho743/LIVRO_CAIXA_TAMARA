@@ -6,7 +6,7 @@
 <title>Livro-caixa — Tâmara Cavalcante Organizer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -17,8 +17,10 @@
     --marfim:#F5F1E9; --tinta:#26251F; --cinza:#6B685F;
     --linha:#DEDBD3; --linha-clara:#EBE8E1;
     --tijolo:#C0392B; --papel:#FFFFFF;
-    --serif:'Cormorant Garamond',Georgia,serif;
-    --sans:'Jost',Futura,'Century Gothic',sans-serif;
+    /* números: Inter com algarismos alinhados e de largura fixa (colunas de valores alinham); marca: Fraunces */
+    --serif:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --marca:'Fraunces',Georgia,serif;
   }
   *{box-sizing:border-box}
   #lc{font-family:var(--sans);color:var(--tinta);background:var(--papel);
@@ -707,6 +709,224 @@
   .ir-pl th:first-child{text-align:left}.ir-pl td{text-align:right!important;font-family:var(--sans)!important;font-size:12.5px!important;white-space:nowrap}
   .ir-pl td.d{text-align:left!important}.ir-pl tr.t td{font-weight:600;border-top:1px solid var(--linha)}
   .ir-conf{margin:0 0 10px;padding-left:18px;font-size:13.5px;line-height:1.5}.ir-conf li{margin:0 0 7px}
+  /* ================= layout 2026-10 (igual ao Financeiro Solano) =================
+     Interface neutra (cinzas), UM acento institucional (azul-marinho) para navegação e ações,
+     e cor só onde há significado: verde = positivo, vermelho = negativo/estouro, âmbar = atenção.
+     Computador: menu lateral com todas as telas. Tablet: seções e telas em 2 linhas no topo. Celular: seções na barra de baixo. */
+  :root,#lc{
+    --ac:#1D3B6E; --ac-hover:#16305A; --ac-bg:#EEF2F8; --ac-borda:#C9D4E6;
+    --tx:#101828; --tx2:#475467; --tx3:#667085; --bd:#E4E7EC; --bd2:#EEF0F3;
+    --sf:#FFFFFF; --sf2:#F9FAFB; --bg:#F5F6F8;
+    --pos:#067647; --pos-bg:#ECFDF3; --neg:#B42318; --neg-bg:#FEF3F2; --alerta:#B54708; --alerta-bg:#FFFAEB;
+    --verde:var(--ac); --info:var(--ac); --ouro:var(--ac); --tinta:var(--tx); --cinza:var(--tx3); --linha:var(--bd); --linha-clara:var(--bd2);
+    --sombra:0 1px 2px rgba(16,24,40,.05);
+  }
+  #lc,#lc.tema-dash{background:var(--bg);color:var(--tx);font-feature-settings:"tnum" 1,"lnum" 1,"cv11" 1}
+  #lc input,#lc select{font-feature-settings:"tnum" 1,"lnum" 1}
+  #telaLogin{background:var(--bg)}
+  .login-card{background:var(--sf);border:1px solid var(--bd);border-radius:16px;box-shadow:0 4px 18px rgba(16,24,40,.08)}
+  /* topo: branco, sóbrio; Importar é a ação principal */
+  .topo{background:var(--sf);color:var(--tx);border-bottom:1px solid var(--bd);padding:14px 28px}
+  .marca h1,.topo .marca h1,.login-logo{font-family:var(--sans);font-weight:700;letter-spacing:-.02em;color:var(--tx)}
+  #lc .topo .marca h1{font-size:20px;font-weight:700}
+  .topo .marca p{color:var(--tx3);letter-spacing:.04em;text-transform:none;font-size:12.5px;margin-top:3px}
+  .topo .bt,.bt{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600;border-radius:8px}
+  .topo .bt:hover,.bt:hover{background:var(--ac-hover);border-color:var(--ac-hover)}
+  .topo .bt.vazado,.bt.vazado{background:var(--sf);border-color:var(--bd);color:var(--tx2);font-weight:500}
+  .topo .bt.vazado:hover,.bt.vazado:hover{background:var(--sf2);border-color:#D0D5DD;color:var(--tx)}
+  #btLancar{font-size:12.5px}
+  #barraUsuario,#barraUsuario *{color:var(--tx2)}
+  #barraUsuario button{background:var(--sf);border-color:var(--bd)}
+  .menu{border-color:var(--bd);border-radius:10px;box-shadow:0 10px 30px rgba(16,24,40,.14)}
+  .menu button{border-radius:6px}.menu button:hover{background:var(--sf2)}
+  .corpo{max-width:1280px}
+  /* barra de período */
+  .barra-periodo,.tema-dash .barra-periodo{background:transparent;border-bottom:1px solid var(--bd)}
+  .periodo button,.periodo select,.prev-meses button,.fx-nav button{border-color:var(--bd);border-radius:8px}
+  .periodo select{font-weight:600}
+  .vistas,.dash-modo{border-color:var(--bd);border-radius:8px}
+  .vistas button.on,.dash-modo button.on,.prev-meses button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+  /* títulos de seção: discretos, sem traço colorido */
+  .tit-secao::before{display:none}
+  .tit-secao h3,.rot,.bc-n,.tema-dash .rot,.tema-dash .tit-secao h3,.tema-dash .bc-n{color:var(--tx3);font-size:11.5px;letter-spacing:.06em;font-weight:600}
+  .sub,.nota-linha,.kpi-sub{color:var(--tx3)}
+  .nota-linha b{color:var(--tx)}
+  /* números: Inter, peso firme */
+  .num,.dash-geral .v,.dash-kpi .v,.conf-v,.bc-l b,.cas-v,.pv-l b,.pv-tot b,.dv-val,.cai-val{font-weight:600;letter-spacing:-.02em;font-variant-numeric:lining-nums tabular-nums}
+  td.valor,td.valor .campo,.cat-val,.dash-lin .vl,.dash-mes td,table.matriz td.n{font-weight:500}
+  .dash-col h2{font-family:var(--sans);font-weight:700;font-size:20px;letter-spacing:-.01em}
+  /* cartões: superfície branca, borda fina, sem fundos coloridos */
+  .dash-geral,.bancos,.conf,.dash-atencao,.totais,.dash-col,.cascata,.ir-card,.dv-card,
+  .tema-dash .dash-geral,.tema-dash .bancos,.tema-dash .dash-atencao,.tema-dash .dash-col{
+    background:var(--sf);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--sombra)}
+  .totais{padding:6px 4px 0}
+  .tema-dash .dash-col{border-top:1px solid var(--bd)}
+  .dash-col{box-shadow:inset 0 3px 0 var(--dc),var(--sombra)}
+  .dash-geral,.tema-dash .dash-geral{padding:0;gap:0}
+  .dash-geral .g-num,.tema-dash .dash-geral .g-num,.dash-geral .g-num.clic-card{background:transparent;border-left:none;border-radius:0;padding:18px 22px;border-right:1px solid var(--bd2)}
+  .dash-geral .g-num:last-of-type{border-right:none}
+  .dash-geral .g-hist,.tema-dash .dash-geral .g-hist{margin:0;padding:12px 22px 16px;border-top:1px solid var(--bd2);color:var(--tx2)}
+  .dash-kpi,.tema-dash .dash-kpi{background:var(--sf2);border:1px solid var(--bd2);border-left:1px solid var(--bd2);border-radius:10px}
+  .dash-geral .g-num.clic-card:hover,.g-num.clic-card:hover,.dash-kpi.clic-card:hover,.sep-card.clic:hover{background:var(--sf2)}
+  .dash-geral .v,.dash-hoje .v,.num{color:var(--tx)}
+  .dash-geral .v{font-size:28px}
+  .tema-dash .dash-geral .g-num:nth-child(1) .rot::before,.tema-dash .dash-kpi:nth-child(1) .rot::before,.tot:nth-child(1) .rot::before{content:"▲ ";color:var(--pos)}
+  .tema-dash .dash-geral .g-num:nth-child(2) .rot::before,.tema-dash .dash-kpi:nth-child(2) .rot::before,.tot:nth-child(2) .rot::before{content:"▼ ";color:var(--neg)}
+  .tema-dash .dash-geral.dash-hoje .g-num:nth-child(n) .rot::before{content:none}
+  .tot::before{height:3px}
+  /* faixa "previsão do mês" no topo da Visão geral: o resultado do mês é o número em destaque (azul-marinho) */
+  .dash-hoje-tit{margin:22px 0 8px}
+  .dash-hoje,.tema-dash .dash-hoje{grid-template-columns:repeat(4,1fr);overflow:hidden;margin-top:0}
+  .dash-hoje.um{display:block;padding:16px 22px;margin-top:22px}
+  .dash-hoje .v{font-size:26px;white-space:nowrap}
+  .dash-hoje .g-num:last-child,.tema-dash .dash-hoje .g-num:last-child{background:var(--ac)}
+  .dash-hoje .g-num.clic-card:last-child:hover{background:var(--ac-hover)}
+  .dash-hoje .g-num:last-child .v{color:#fff!important}
+  .dash-hoje .g-num:last-child .rot,.dash-hoje .g-num:last-child .kpi-sub{color:#DBE4F3}
+  .link-prev{color:var(--ac);font-weight:600;text-decoration:underline;text-underline-offset:3px;padding:0 2px}
+  @media (max-width:860px){.dash-hoje,.tema-dash .dash-hoje{grid-template-columns:1fr 1fr}.dash-hoje .g-num:nth-child(2){border-right:none}
+    .dash-hoje .g-num:nth-child(-n+2){border-bottom:1px solid var(--bd2)}}
+  @media (max-width:700px){.dash-geral,.tema-dash .dash-geral{grid-template-columns:1fr}
+    .dash-geral .g-num,.dash-geral .g-num.clic-card,.tema-dash .dash-geral .g-num{border-right:none;border-bottom:1px solid var(--bd2);padding:12px 16px}
+    .dash-hoje,.tema-dash .dash-hoje{grid-template-columns:1fr 1fr}.dash-hoje .v{font-size:19px}.dash-geral .v{font-size:22px}}
+  /* bancos: identidade da conta só no selo */
+  .bc-t,.tema-dash .bc-t{background:var(--sf2);border:1px solid var(--bd2)}
+  .bc-l b{color:var(--tx)}
+  .tema-dash .bc-t .bc-n,.bc-t .bc-n{color:var(--tx)}
+  /* barra da fatura do cartão: azul-marinho, cantos arredondados */
+  .barra-fatura{border-radius:12px;box-shadow:var(--sombra);background:var(--ac)}
+  /* atenção: âmbar/vermelho só no marcador, fundo neutro */
+  .dash-atencao .it{border-color:var(--bd2)}
+  .dash-atencao .it.clic:hover{background:var(--sf2)}
+  .dash-atencao .it>span:first-child::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--alerta);margin-right:10px;vertical-align:2px}
+  .alerta{background:var(--sf);border:1px solid var(--bd);border-left:3px solid var(--neg);border-radius:10px}
+  .alerta>div::before{color:var(--neg)}
+  /* tabelas: cabeçalho neutro, zebra suave, hover discreto */
+  table thead th{background:var(--sf2);color:var(--tx3);border-bottom:1px solid var(--bd)!important;letter-spacing:.06em;font-weight:600}
+  #tabelaLanc tbody tr:nth-child(even),.pv-tab tbody tr:nth-child(even){background:#FAFBFC}
+  tbody tr:hover,.tema-dash tbody tr:hover{background:#F2F4F7!important}
+  td.valor.neg .campo,td.valor.neg,.neg{color:var(--neg)}
+  td.valor.pos .campo,td.valor.pos,.pos{color:var(--pos)}
+  .fx-caixa{border-color:var(--bd);border-radius:12px;scrollbar-color:#98A2B3 #EEF0F3}
+  .fx-caixa::-webkit-scrollbar-track,.fx-caixa::-webkit-scrollbar-corner{background:#EEF0F3}
+  .fx-caixa::-webkit-scrollbar-thumb{background:#98A2B3;border-color:#EEF0F3}
+  .fx-tab thead th{background:var(--sf2);border-bottom:1px solid var(--bd)}
+  .dash-lin:hover{background:var(--sf2);box-shadow:inset 3px 0 0 var(--ac)}
+  .clic-card:hover,tr.clic-card:hover td{background:var(--sf2)}
+  .clic-card:focus-visible{outline-color:var(--ac)}
+  #lc a,.ver-mais{color:var(--ac)}
+  #lc :focus-visible{outline-color:var(--ac)}
+  .chip{background:var(--ac-bg);color:var(--ac);border-color:var(--ac-borda)}.chip button{color:var(--ac)}
+
+  /* ---- navegação em 2 níveis: 1ª linha, 5 seções fixas; 2ª linha, as telas da seção ---- */
+  .nav-grupos{display:flex;gap:2px;background:var(--sf);padding:0 28px;border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}
+  .nav-grupos::-webkit-scrollbar{display:none}
+  .nav-grupo{display:inline-flex;align-items:center;gap:8px;font:500 14.5px/1 var(--sans);color:var(--tx2);background:none;border:0;
+    border-bottom:3px solid transparent;padding:16px 18px 13px;cursor:pointer;white-space:nowrap}
+  .nav-grupo span{display:inline-flex;opacity:.55}
+  .nav-grupo:hover{color:var(--tx);background:var(--sf2)}
+  .nav-grupo.ativa{color:var(--ac);border-bottom-color:var(--ac);font-weight:600}
+  .nav-grupo.ativa span{opacity:1}
+  .nav-grupo:focus-visible,.conta-tab:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+  #contaTabs.conta-tabs{display:flex;flex-wrap:nowrap;gap:6px;background:var(--sf2);box-shadow:none;border-bottom:1px solid var(--bd);padding:8px 28px;overflow-x:auto}
+  #contaTabs .conta-tab,#contaTabs .conta-tab[data-conta]{display:inline-flex;align-items:center;margin:0;padding:7px 14px;font-size:13px;font-weight:500;
+    color:var(--tx2);background:transparent;border:1px solid transparent;border-radius:8px;letter-spacing:0;white-space:nowrap}
+  #contaTabs .conta-tab:hover{background:var(--bd);color:var(--tx)}
+  #contaTabs .conta-tab.ativa,#contaTabs .conta-tab[data-conta].ativa{background:var(--sf);color:var(--ac)!important;border-color:var(--bd);
+    box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:600}
+  #lc #contaTabs.conta-tabs[hidden],#lc #contaTabs .conta-tab[hidden]{display:none}
+  .nav-sec,.ic-nav,.nav-mais{display:none}
+  /* selos das contas (menu e saldos nos bancos) */
+  .ic-banco{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:22px;border-radius:6px;
+    font:700 8px/1 var(--sans);letter-spacing:.02em;text-transform:none;vertical-align:-6px;margin-right:8px;color:#fff}
+  .ib-cpf{background:#2E86DE}
+  .ib-cnpj{background:#1E8A5F;font-size:7px}
+  .bc-l .bc-n:has(.ic-banco)::before{display:none}
+  .bc-l .bc-n{display:inline-flex;align-items:center}
+  @media (max-width:700px){.nav-grupos{padding:0 8px}.nav-grupo{padding:13px 12px 10px;font-size:13.5px}
+    #contaTabs.conta-tabs{padding:6px 8px}}
+  /* computador: menu lateral com todas as telas agrupadas */
+  @media (min-width:1100px){
+    #lc{display:grid;grid-template-columns:236px minmax(0,1fr);grid-template-rows:auto auto 1fr;align-items:start;min-height:100vh;padding-bottom:0}
+    #lc>#corpo{padding-bottom:60px}
+    #lc>.topo{grid-column:1/-1}
+    #lc>.lateral{grid-column:1;grid-row:2/4;position:sticky;top:0;max-height:100vh;overflow-y:auto;align-self:stretch;
+      background:var(--sf);border-right:1px solid var(--bd)}
+    #lc>#abas{grid-column:2;grid-row:2}
+    #lc>#corpo{grid-column:2;grid-row:3}
+    #lc #navGrupos{display:none}
+    #lc #contaTabs.conta-tabs,#lc #contaTabs.conta-tabs[hidden]{display:flex;flex-direction:column;gap:1px;background:transparent;border:0;padding:16px 12px 24px;overflow:visible}
+    #lc #contaTabs .conta-tab,#lc #contaTabs .conta-tab[hidden]{display:flex;align-items:center;gap:8px;width:100%;text-align:left;position:relative;
+      padding:9px 28px 9px 12px;font-size:14px;font-weight:500;border:0;border-radius:8px;color:var(--tx2)}
+    #lc #contaTabs .conta-tab:hover{background:var(--sf2);color:var(--tx)}
+    #lc #contaTabs .conta-tab.ativa,#lc #contaTabs .conta-tab[data-conta].ativa{background:var(--ac-bg);color:var(--ac)!important;font-weight:600;box-shadow:inset 3px 0 0 var(--ac)}
+    #lc #contaTabs .ic-nav{display:block;flex:none;color:var(--tx3)}
+    #lc #contaTabs .conta-tab .ic-banco{margin-right:0}
+    #lc #contaTabs .conta-tab::after{content:"›";position:absolute;right:12px;top:50%;transform:translateY(-52%);font-size:16px;color:var(--tx3);opacity:0;transition:opacity .12s}
+    #lc #contaTabs .conta-tab:hover::after,#lc #contaTabs .conta-tab.ativa::after{opacity:1}
+    #lc #contaTabs .conta-tab:hover .ic-nav{color:var(--tx)}
+    #lc #contaTabs .conta-tab.ativa .ic-nav,#lc #contaTabs .conta-tab.ativa::after{color:var(--ac)}
+    #lc #contaTabs .conta-tab:focus:not(:focus-visible){outline:none}
+    #lc .nav-sec{display:block;cursor:default;user-select:none;font:600 10.5px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:#98A2B3;
+      margin-top:10px;padding:12px 12px 6px;border-top:1px solid var(--bd2)}
+  }
+  /* celular: as 5 seções numa barra fixa embaixo, com o botão + no meio */
+  @media (max-width:700px){
+    #lc{padding-bottom:88px}
+    #lc #navGrupos{position:fixed;left:0;right:0;bottom:0;z-index:60;display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) 64px repeat(3,minmax(0,1fr));gap:0;
+      padding:4px 2px calc(4px + env(safe-area-inset-bottom));background:var(--sf);border-top:1px solid var(--bd);border-bottom:0;
+      box-shadow:0 -2px 10px rgba(16,24,40,.06);overflow:visible}
+    #lc .nav-grupo{flex-direction:column;justify-content:center;gap:3px;min-height:54px;padding:6px 2px;border:0;border-radius:10px;
+      font-size:11px;line-height:1.15;white-space:normal;text-align:center}
+    #lc .nav-grupo span{opacity:.75}
+    #lc .nav-grupo.ativa{color:var(--ac);background:var(--ac-bg)}
+    #lc .nav-grupo.ativa span{opacity:1}
+    .aviso{bottom:84px}
+    #lc .nav-mais{display:flex;align-items:center;justify-content:center;align-self:center;justify-self:center;width:52px;height:52px;border:0;border-radius:16px;
+      background:var(--ac);color:#fff;box-shadow:0 2px 6px rgba(29,59,110,.35);cursor:pointer}
+    #lc .nav-mais:active{background:var(--ac-hover)}
+    #lc .topo #btLancar{display:none}
+    .topo{padding:12px 16px}
+  }
+
+  /* ---- previsão do mês: tipo (fixo/variável), filtro e blocos coloridos por grupo ---- */
+  .prev-acoes .bt{border-radius:8px}
+  .pv-contas{min-width:600px}
+  .pv-tab col.c-tipo{width:96px}
+  .pv-tab th{border-bottom:1px solid var(--bd)}
+  .pv-resumo{background:var(--sf);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--sombra)}
+  .pv-tot{border-top-color:var(--tx)}
+  .pv-tab .campo.pos{color:var(--pos)}
+  .pv-pagar{color:var(--pos)}.pv-pagar:hover{background:var(--pos);border-color:var(--pos)}
+  .pv-tipo{font-size:12px;padding:4px 6px;border:1px solid transparent;border-radius:6px;background:transparent;font-weight:600;cursor:pointer;width:100%;font-family:inherit}
+  .pv-tipo.fixo{color:#5D6D2E} .pv-tipo.var{color:#1F4E8C}
+  .pv-tipo:hover,.pv-tipo:focus{border-color:var(--bd)}
+  .pv-fv-var{color:#1F4E8C}
+  .pv-tab tr.pv-bloco td{background:var(--gcl);border-bottom:1px solid var(--gc);padding:8px 6px;font-size:12px}
+  .pv-tab tr.pv-bloco td:first-child{box-shadow:inset 4px 0 0 var(--gc)}
+  .pv-tab tr.pv-bloco .pv-bn{color:var(--gc);font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:11.5px}
+  .pv-tab tr.pv-bloco .pv-bq{color:var(--tx3);margin-left:8px;font-size:11.5px}
+  .pv-tab tr.pv-bloco td.n{text-align:right;font-family:var(--serif);font-size:15px;font-weight:600;color:var(--gc)}
+  .pv-tab tr.pv-gl td:first-child{box-shadow:inset 4px 0 0 var(--gc)}
+  .pv-tab tr.pv-gl:hover td{background:var(--gcl)}
+  .pv-tab tr.pv-vencida.pv-gl td:first-child{box-shadow:inset 4px 0 0 #DC2626}
+  .pv-tab tr.pv-hoje.pv-gl td:first-child{box-shadow:inset 4px 0 0 #D97706}
+  .pv-tab select.pv-gsel{display:block;font-size:10.5px;color:var(--gc);border:0;background:transparent;max-width:100%;padding:0 2px;cursor:pointer;
+    height:0;opacity:0;overflow:hidden;transition:opacity .12s;font-family:inherit}
+  .pv-tab tr.pv-gl:hover select.pv-gsel,.pv-tab tr.pv-gl:focus-within select.pv-gsel{height:auto;opacity:1}
+  .pv-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+  .pv-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--gc);background:var(--gcl);color:var(--tx);
+    border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+  .pv-chip i{width:9px;height:9px;border-radius:50%;background:var(--gc);display:inline-block}
+  .pv-chip b{font-family:var(--serif);font-weight:600;color:var(--gc)}
+  .pv-filtro{display:inline-flex;gap:4px;background:#F3F4F6;border:1px solid var(--bd);border-radius:10px;padding:3px;margin:0 0 10px}
+  .pv-filtro button{border:0;background:transparent;border-radius:8px;padding:6px 12px;font:500 13px var(--sans);color:var(--tx2);cursor:pointer;white-space:nowrap}
+  .pv-filtro button small{color:#9CA3AF;font-size:11px;margin-left:2px}
+  .pv-filtro button b{font-family:var(--serif);font-weight:600;margin-left:4px}
+  .pv-filtro button:hover{background:var(--bd)}
+  .pv-filtro button.on{background:var(--sf);box-shadow:0 1px 2px rgba(0,0,0,.1);color:var(--ac)}
+  .pv-filtro button.var.on{color:#1F4E8C}
+  @media (max-width:700px){.pv-filtro{display:flex;overflow-x:auto}.pv-filtro button{padding:6px 9px}}
 </style>
 
 <div id="telaLogin">
@@ -757,19 +977,34 @@
     </div>
   </header>
 
-  <nav class="conta-tabs" id="contaTabs">
-    <button class="conta-tab ativa" data-conta="dash">Visão geral</button>
-    <button class="conta-tab" data-conta="cpf">Pessoal</button>
-    <button class="conta-tab" data-conta="pj">Negócio — MEI</button>
-    <button class="conta-tab" data-conta="prev">Previsão do mês</button>
-    <button class="conta-tab" data-conta="fluxo">Fluxo CNPJ</button>
-    <button class="conta-tab" data-conta="irpf">Imposto de Renda</button>
-    <button class="conta-tab" data-conta="entr">Entradas</button> <button class="conta-tab" data-conta="div">Dívidas e parcelas</button>
-    <button class="conta-tab" data-conta="cai">Caixinhas</button>
-    <span class="conta-sep">Conferir com o extrato:</span>
-    <button class="conta-tab banco" data-conta="bcpf">Conta CPF</button>
-    <button class="conta-tab banco" data-conta="bpj">Conta CNPJ</button>
+  <!-- navegação: no computador, menu lateral com todas as telas; no tablet, 2 níveis no topo; no celular, seções na barra de baixo -->
+  <aside class="lateral">
+  <nav class="nav-grupos" id="navGrupos" aria-label="Seções">
+    <button class="nav-grupo ativa" data-grupo="geral"><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span>Visão geral</button>
+    <button class="nav-grupo" data-grupo="dia"><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>Dia a dia</button>
+    <button class="nav-mais" id="btLancarNav" aria-label="Novo lançamento"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="nav-grupo" data-grupo="plan"><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>Planejamento</button>
+    <button class="nav-grupo" data-grupo="patri"><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg></span>Dívidas e IR</button>
+    <button class="nav-grupo" data-grupo="contas"><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></span>Conferir contas</button>
   </nav>
+  <nav class="conta-tabs" id="contaTabs" aria-label="Telas da seção" hidden>
+    <button class="conta-tab ativa" data-g="geral" data-conta="dash"><svg class="ic-nav" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Visão geral</button>
+    <span class="nav-sec" aria-hidden="true">Dia a dia</span>
+    <button class="conta-tab" data-g="dia" data-conta="cpf"><svg class="ic-nav" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Pessoal</button>
+    <button class="conta-tab" data-g="dia" data-conta="pj"><svg class="ic-nav" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>Negócio — MEI</button>
+    <button class="conta-tab" data-g="dia" data-conta="prev"><svg class="ic-nav" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Previsão do mês</button>
+    <button class="conta-tab" data-g="dia" data-conta="entr" title="Todas as entradas de caixa, com a conta e a classificação"><svg class="ic-nav" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Entradas</button>
+    <span class="nav-sec" aria-hidden="true">Planejamento</span>
+    <button class="conta-tab" data-g="plan" data-conta="fluxo" title="Previsão mensal de receitas e despesas do negócio"><svg class="ic-nav" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>Fluxo CNPJ</button>
+    <button class="conta-tab" data-g="plan" data-conta="cai"><svg class="ic-nav" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Caixinhas</button>
+    <span class="nav-sec" aria-hidden="true">Dívidas e IR</span>
+    <button class="conta-tab" data-g="patri" data-conta="div"><svg class="ic-nav" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Dívidas e parcelas</button>
+    <button class="conta-tab" data-g="patri" data-conta="irpf"><svg class="ic-nav" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Imposto de Renda</button>
+    <span class="nav-sec" aria-hidden="true">Conferir com o extrato</span>
+    <button class="conta-tab banco" data-g="contas" data-conta="bcpf"><span class="ic-banco ib-cpf" aria-hidden="true">CPF</span>Conta CPF</button>
+    <button class="conta-tab banco" data-g="contas" data-conta="bpj"><span class="ic-banco ib-cnpj" aria-hidden="true">CNPJ</span>Conta CNPJ</button>
+  </nav>
+  </aside>
   <div class="barra-periodo" id="abas"></div>
   <div class="corpo" id="corpo"></div>
   <div class="aviso" id="aviso"></div>
@@ -910,6 +1145,45 @@
     return "rgba("+parseInt(h.slice(0,2),16)+","+parseInt(h.slice(2,4),16)+","+parseInt(h.slice(4,6),16)+","+a+")";
   };
   const ponto = c => '<span class="ponto" style="background:'+cor(c)+'"></span>';
+  // blocos da Previsão do mês: grupos de categorias, cada um com a sua cor
+  const GRUPOS = [
+    {g:"Moradia e contas", cor:"#2C5F8A", cats:["Casa e manutenção","Telefone e internet","Seguros","Assinaturas digitais"]},
+    {g:"Alimentação", cor:"#D97706", cats:["Mercado e padaria","Alimentação fora"]},
+    {g:"Saúde e beleza", cor:"#D6336C", cats:["Farmácia","Estética e cuidados","Salão e beleza","Academia","Suplementos"]},
+    {g:"Meninas e educação", cor:"#C2185B", cats:["Gastos meninas"]},
+    {g:"Transporte", cor:"#0B8793", cats:["Gasolina","Transporte"]},
+    {g:"Pessoal e lazer", cor:"#7D3C98", cats:["Lazer e entretenimento","Vestuário e acessórios","Presentes e doações","Compras físicas","Compras online","Despesas diversas","Transferência família"]},
+    {g:"Cartão e dívidas", cor:"#B42318", cats:["Cartão de crédito","Juros e IOF"]},
+    {g:"Sala e estrutura", cor:"#5D4037", cats:["Aluguel de sala"]},
+    {g:"Equipe e serviços", cor:"#5B4FCF", cats:["Serviços do negócio"]},
+    {g:"Marketing", cor:"#EF6C00", cats:["Marketing"]},
+    {g:"Material e produtos", cor:"#8D6E0F", cats:["Material de trabalho","Produtos para venda"]},
+    {g:"Impostos", cor:"#0E7490", cats:["Impostos e taxas"]},
+    {g:"Pró-labore", cor:"#3F51B5", cats:["Pró-labore (retirada MEI)"]},
+    {g:"Transferências e aplicações", cor:"#6B7280", cats:["Aplicação e resgate","Transferência enviada","Transferência entre minhas contas"]},
+    {g:"Receitas", cor:"#15803D", cats:["Receita de cliente","Reembolso e estorno","Rendimento","Transferência recebida"]}
+  ];
+  const GRUPO_DE = {}, COR_GRUPO = {};
+  GRUPOS.forEach(x=>{ COR_GRUPO[x.g]=x.cor; x.cats.forEach(c=>{ GRUPO_DE[c]=x.g; }); });
+  const BLOCO_OUTROS = "Outros";
+  const corGrupo = g => COR_GRUPO[g] || "#8C8579";
+  const estiloBloco = g => '--gc:'+corGrupo(g)+';--gcl:'+rgba(corGrupo(g),.10);
+  // linhas digitadas sem categoria: o bloco sai do texto
+  const GRUPO_TXT = [
+    [/casa original|\bsala\b/i,"Sala e estrutura"],
+    [/\bdas\b|inss|imposto|simples nac|darf/i,"Impostos"],
+    [/contador|cont[áa]bil|equipe|fornecedor|freela|assistente/i,"Equipe e serviços"],
+    [/m[íi]dia|an[úu]ncio|marketing|tr[áa]fego/i,"Marketing"],
+    [/pr[óo].?labore|retirada/i,"Pró-labore"],
+    [/cart[ãa]o|fatura|empr[ée]stimo|parcela|financiamento|juros|acordo|cheque especial/i,"Cartão e dívidas"],
+    [/aluguel|condom[íi]nio|\bluz\b|energia|cemig|[áa]gua|copasa|\bg[áa]s\b|internet|telefone|celular|iptu|diarista|dom[ée]stic|faxina|seguro|assinatura/i,"Moradia e contas"],
+    [/mercado|supermerc|padaria|feira|sacol[ãa]o|a[çc]ougue|restaurante|almo[çc]o|jantar|ifood|lanche/i,"Alimentação"],
+    [/farm[áa]cia|rem[ée]dio|m[ée]dic|dentist|sa[úu]de|unimed|exame|consulta|terapia|psic|academia|sal[ãa]o|est[ée]tica/i,"Saúde e beleza"],
+    [/escola|col[ée]gio|curso|aula|faculdade|mensalidade|meninas|bal[ée]|nata[çc][ãa]o/i,"Meninas e educação"],
+    [/gasolina|combust|uber|transporte|estacionamento|ipva|carro|oficina|ped[áa]gio/i,"Transporte"],
+    [/presente|roupa|vestu[áa]rio|lazer|viagem|cinema|show/i,"Pessoal e lazer"],
+    [/aplica[çc][ãa]o|poupan[çc]a|caixinha|investimento|reserva/i,"Transferências e aplicações"]
+  ];
 
   const REGRAS_PADRAO = [
     ["DROGARIA","Farmácia","PF"],["FARMACIA","Farmácia","PF"],["ULTRA POPULAR","Farmácia","PF"],
@@ -1359,10 +1633,12 @@
         (historia?'<p class="g-hist">'+historia+'</p>':'')+
       '</section>' : "";
 
+    // ordem: previsão do mês e saldos nos bancos primeiro (o que fazer agora); depois os números do período
     $("#corpo").innerHTML=
+      faixaPrevisao()+
+      (dados.lancamentos.length?painelBancos():"")+
       barraFatura()+
       faixa+
-      (dados.lancamentos.length?painelBancos():"")+
       '<div class="dash-topo" style="margin-top:22px">'+
         '<p class="nota-linha" style="margin:0;max-width:62ch">Compras do cartão contam na data da compra. '+
           'Fatura, aplicações e transferências entre suas contas não entram.</p>'+
@@ -2348,7 +2624,16 @@
   /* ================= navegação ================= */
   const cap = t => t.charAt(0).toUpperCase()+t.slice(1);
   function marcarConta(){
-    document.querySelectorAll("#contaTabs .conta-tab").forEach(b=>b.classList.toggle("ativa",b.dataset.conta===ui.conta));
+    // "todas" (cartões da Visão geral) não tem tela própria: fica marcada a Visão geral
+    const atual=ui.conta==="todas"?"dash":ui.conta;
+    let g="geral";
+    document.querySelectorAll("#contaTabs .conta-tab").forEach(b=>{ const on=b.dataset.conta===atual;
+      b.classList.toggle("ativa",on); if(on){ g=b.dataset.g; b.setAttribute("aria-current","page"); } else b.removeAttribute("aria-current"); });
+    // seção da tela atual: só as telas dela aparecem na 2ª linha; a Visão geral não tem 2ª linha
+    (ui.ultG=ui.ultG||{})[g]=atual;
+    document.querySelectorAll("#navGrupos .nav-grupo").forEach(b=>{ const on=b.dataset.grupo===g; b.classList.toggle("ativa",on); b.setAttribute("aria-expanded",on); });
+    document.querySelectorAll("#contaTabs .conta-tab").forEach(b=>{ b.hidden=b.dataset.g!==g; });
+    $("#contaTabs").hidden=g==="geral";
   }
   function mesPadrao(meses){
     const ok=meses.filter(m=>m<=mesAtual()), l=ok.length?ok:meses;
@@ -2392,9 +2677,9 @@
   const pvBrlS = v => (v>0?"+":"")+brl(v);
   const pvConta = () => ui.prevConta==="pj"?"pj":"cpf";
   const pvNome = c => c==="pj"?"Negócio — MEI":"Pessoal";
-  function pvMapa(){
+  function pvMapa(conta){
     if(!dados.previsoes) dados.previsoes={cpf:{},pj:{}};
-    const c=pvConta(); return dados.previsoes[c]||(dados.previsoes[c]={});
+    const c=conta||pvConta(); return dados.previsoes[c]||(dados.previsoes[c]={});
   }
   const pvMeses = () => Object.keys(pvMapa()).sort();
   const pvProxMes = ym => { const [a,m]=ym.split("-").map(Number); return m===12?(a+1)+"-01":a+"-"+String(m+1).padStart(2,"0"); };
@@ -2419,23 +2704,36 @@
     p.itens.sort((a,b)=>(a.data||"9999")<(b.data||"9999")?-1:(a.data||"9999")>(b.data||"9999")?1:0);
   }
   // mês futuro: o saldo de partida é a sobra/falta do mês anterior (se ele tem previsão)
-  function pvAntYm(ym){
+  function pvAntYm(ym,conta){
     const [a,m]=ym.split("-").map(Number), k=m===1?(a-1)+"-12":a+"-"+String(m-1).padStart(2,"0");
-    return ym>mesAtual() && pvMapa()[k] ? k : null;
+    return ym>mesAtual() && pvMapa(conta)[k] ? k : null;
   }
-  function pvSaldo(p,ym){
+  function pvSaldo(p,ym,conta){
     if(p.saldoManual) return +p.saldo||0;
-    const ant=pvAntYm(ym);
-    if(ant) return pvTotais(pvMapa()[ant],ant).resultado;
+    const ant=pvAntYm(ym,conta);
+    if(ant) return pvTotais(pvMapa(conta)[ant],ant,conta).resultado;
     return +p.saldo||0;
   }
-  function pvTotais(p,ym){
+  function pvTotais(p,ym,conta){
     const soma=(a,f)=>(a||[]).reduce((s,x)=>s+(+f(x)||0),0);
     const aPagar=soma(p.itens,x=>x.aPagar), pago=soma(p.itens,x=>x.pago);
     const receber=soma((p.receitas||[]).filter(x=>!x.recebido),x=>x.v);
     const outras=soma((p.notas||[]).filter(x=>!x.recebido),x=>x.v);
-    const saldo=pvSaldo(p,ym);
+    const saldo=pvSaldo(p,ym,conta);
     return {aPagar:aPagar, pago:pago, receber:receber, outras:outras, saldo:saldo, resultado:pvCent(saldo+receber+outras+aPagar)};
+  }
+  // fixo × variável: o que foi marcado na linha; sem marca, as estimativas pela média são variáveis e o resto é fixo
+  const tipoPrev = x => x.tipo==="var"||x.tipo==="fixo" ? x.tipo : (/(^|— )média /i.test(x.d||"") ? "var" : "fixo");
+  // bloco (grupo de categorias) de uma linha da previsão: o escolhido na linha; senão pela categoria
+  // (gravada, "Média …: Categoria", "Categoria — …" ou o nome igual a uma categoria), pelas regras do extrato ou pelo texto
+  function grupoPrev(x){
+    if(x.grupo&&(COR_GRUPO[x.grupo]||x.grupo===BLOCO_OUTROS)) return x.grupo;
+    const d=String(x.d||"").trim();
+    const c=[x.cat,(d.match(/^Média [^:]*:\s*(.+?)(\s*\(restante do mês\))?$/)||[])[1],d.split(" — ")[0],d].find(c=>c&&GRUPO_DE[c]);
+    if(c) return GRUPO_DE[c];
+    const k=classificar(d,-1).categoria; if(GRUPO_DE[k]) return GRUPO_DE[k];
+    const r=GRUPO_TXT.find(r=>r[0].test(d));
+    return r?r[1]:BLOCO_OUTROS;
   }
 
   // Marca como paga a conta em aberto que já aparece nos lançamentos (mesmo valor, até 6 dias de diferença da data prevista)
@@ -2463,14 +2761,17 @@
     return n;
   }
 
-  // cria um mês copiando as linhas do anterior: o que foi pago vira previsto, nada marcado como pago/recebido
+  // cria um mês copiando as linhas do anterior, mesmos dias de pagamento: o que foi pago vira previsto, nada marcado como pago/recebido.
+  // Conta paga em parte: previsto = pago + o que faltava. Tipo (fixo/variável), bloco e categoria vão junto.
   function pvNovoMes(deYm,paraYm){
     const mapa=pvMapa(), ms=pvMeses(), ult=deYm||ms[ms.length-1], base=ult?mapa[ult]:null;
     const ym=paraYm||(ult?pvProxMes(ult):mesAtual());
     const [a,m]=ym.split("-").map(Number), dias=new Date(a,m,0).getDate();
     const mover=d=>/^\d{4}-\d{2}-\d{2}$/.test(d||"")?ym+"-"+String(Math.min(+d.slice(8),dias)).padStart(2,"0"):"";
     const novo={saldo:0, saldoManual:false,
-      itens:((base&&base.itens)||[]).map(x=>({data:mover(x.data), d:x.d, aPagar:x.aPagar!=null?x.aPagar:(x.pago?-x.pago:null), pago:null})),
+      itens:((base&&base.itens)||[]).map(x=>{
+        const tot=x.aPagar!=null&&x.aPagar>0?x.aPagar:(x.aPagar!=null||x.pago?-pvCent(Math.abs(x.aPagar||0)+(+x.pago||0)):null);
+        return {data:mover(x.data), d:x.d, aPagar:tot, pago:null, ...(x.tipo?{tipo:x.tipo}:{}), ...(x.grupo?{grupo:x.grupo}:{}), ...(x.cat?{cat:x.cat}:{}), ...(x.est?{est:x.est}:{})}; }),
       receitas:((base&&base.receitas)||[]).map(r=>({d:r.d, v:r.v})), notas:[]};
     pvOrdenar(novo);
     mapa[ym]=novo; ui.prevMes=ym; salvar(); render();
@@ -2501,15 +2802,15 @@
       nMeses=[0,1,2,3,4,5];
       linhas=(ym,k)=>{
         const L=[
-          {data:dia(ym,10),d:"Casa Original — contraprestação da Sala 5 (Cl. 4.1; confirmar vencimento)",aPagar:-2200},
-          {data:dia(ym,10),d:"Casa Original — condomínio fixo (Cl. 5.5, teto R$ 700)",aPagar:-300},
-          {data:dia(ym,20),d:"DAS MEI (já inclui o INSS de R$ "+brl(IR_INSS_MEI)+")",aPagar:-IR_DAS_MEI},
-          {data:dia(ym,10),d:"Contador — honorário mensal",aPagar:-600},
-          {data:dia(ym,5),d:"Mídia — anúncios e redes sociais",aPagar:-700}];
+          {data:dia(ym,10),d:"Casa Original — contraprestação da Sala 5 (Cl. 4.1; confirmar vencimento)",aPagar:-2200,cat:"Aluguel de sala",tipo:"fixo"},
+          {data:dia(ym,10),d:"Casa Original — condomínio fixo (Cl. 5.5, teto R$ 700)",aPagar:-300,cat:"Aluguel de sala",tipo:"fixo"},
+          {data:dia(ym,20),d:"DAS MEI (já inclui o INSS de R$ "+brl(IR_INSS_MEI)+")",aPagar:-IR_DAS_MEI,cat:"Impostos e taxas",tipo:"fixo"},
+          {data:dia(ym,10),d:"Contador — honorário mensal",aPagar:-600,cat:"Serviços do negócio",tipo:"fixo"},
+          {data:dia(ym,5),d:"Mídia — anúncios e redes sociais",aPagar:-700,cat:"Marketing",tipo:"fixo"}];
         if(retTot>0){ const v=k===0?Math.max(0,Math.round(retTot/3-retMes)):Math.round(retTot/3);
-          if(v>=5) L.push({data:dia(ym,10),d:"Pró-labore (retirada) — "+(k===0?"média "+rot+", menos o já retirado":"média "+rot),aPagar:-v}); }
+          if(v>=5) L.push({data:dia(ym,10),d:"Pró-labore (retirada) — "+(k===0?"média "+rot+", menos o já retirado":"média "+rot),aPagar:-v,cat:CAT_PL,tipo:"var"}); }
         med.forEach(x=>{ const v=restante(k,x[0],x[1]); if(v<5) return;
-          L.push({data:dia(ym,x[0]==="Serviços do negócio"?15:25),d:(x[0]==="Serviços do negócio"?"Equipe e fornecedores":x[0])+" — média "+rot+(k===0?" (restante do mês)":""),aPagar:-v}); });
+          L.push({data:dia(ym,x[0]==="Serviços do negócio"?15:25),d:(x[0]==="Serviços do negócio"?"Equipe e fornecedores":x[0])+" — média "+rot+(k===0?" (restante do mês)":""),aPagar:-v,cat:x[0],tipo:"var"}); });
         return L;
       };
       notaPrimeira=[{d:"Custos do Negócio: Sala 5 (R$ 2.500/mês), DAS com INSS, contador, mídia, pró-labore e demais custos pela média de "+rot+". No mês atual entra só o que falta (média menos o já gasto). Pró-labore e equipe variam com o faturamento: ajuste.",v:0},
@@ -2518,7 +2819,7 @@
       const med=med3(new Set(["Sem categoria","Transferência enviada",CAT_PL]));
       if(!med.length){ avisar("Não há gastos pessoais nos últimos 3 meses para calcular a média.",true); return; }
       nMeses=[0,1,2];
-      linhas=(ym,k)=>med.map(x=>({data:k===0?fim(ym):fim(ym),d:"Média "+rot+": "+x[0]+(k===0?" (restante do mês)":""),aPagar:-restante(k,x[0],x[1])})).filter(i=>-i.aPagar>=5);
+      linhas=(ym,k)=>med.map(x=>({data:fim(ym),d:"Média "+rot+": "+x[0]+(k===0?" (restante do mês)":""),aPagar:-restante(k,x[0],x[1]),cat:x[0],tipo:"var"})).filter(i=>-i.aPagar>=5);
       notaPrimeira=[{d:"Estimativa: média mensal dos gastos pessoais de "+rot+" (sem cartão, aplicação e transferências entre contas). No mês atual entra só o que falta (média menos o já gasto). Ajuste conforme o mês.",v:0}];
     }
     nMeses.forEach(k=>{
@@ -2597,6 +2898,7 @@
       return '<tr'+(venc?' class="pv-vencida" title="Vencida e ainda em aberto"':logo?' class="pv-hoje" title="Vence em até 3 dias"':'')+'>'+
         '<td><input type="date" class="campo"'+at("data")+' value="'+esc(x.data||"")+'" aria-label="Data"></td>'+
         '<td><input class="campo"'+at("d")+' value="'+esc(x.d||"")+'" placeholder="Detalhes" aria-label="Detalhes"></td>'+
+        '<td><select class="pv-tipo '+tipoPrev(x)+'"'+at("tipo")+' aria-label="Fixo ou variável"><option value="fixo"'+(tipoPrev(x)==="fixo"?" selected":"")+'>Fixo</option><option value="var"'+(tipoPrev(x)==="var"?" selected":"")+'>Variável</option></select></td>'+
         '<td class="valor"><input class="campo'+(x.aPagar>0?' pos':'')+'"'+at("aPagar")+' value="'+val(x.aPagar,true)+'" placeholder="—" inputmode="decimal" aria-label="A pagar"></td>'+
         '<td class="valor"><input class="campo"'+at("pago")+' value="'+val(x.pago)+'" placeholder="—" inputmode="decimal" aria-label="Pago"></td>'+
         '<td class="acao">'+(x.aPagar!=null&&x.aPagar<0?'<button class="pv-pagar" data-ppagar="'+lista+':'+i+'" title="Marcar como pago">✓</button>':'')+
@@ -2607,6 +2909,7 @@
     const idxOrdenados=lista=>{
       const o=ordPrev(lista), arr=p[lista].map((x,i)=>i);
       const chave=x=>o.k==="d" ? String(x.d||"").toLowerCase()
+        : o.k==="tipo" ? tipoPrev(x)
         : o.k==="data" ? (x.data||"")
         : o.k==="aPagar" ? (x.aPagar==null?null:Math.abs(x.aPagar))
         : (x.pago==null?null:+x.pago);
@@ -2618,14 +2921,43 @@
         return (c||((p[lista][a].data||"").localeCompare(p[lista][b].data||"")))*o.dir || a-b;
       });
     };
+    // linhas agrupadas por bloco (grupo de categorias), na ordem dos grupos; dentro do bloco vale a ordenação escolhida
+    const ORD_G=GRUPOS.map(x=>x.g).concat([BLOCO_OUTROS]);
+    function separaBlocos(lista){
+      // filtro Fixos / Variáveis (ui.pvTipo): vale para a tabela, os blocos e os totais dos blocos
+      const por={}; idxOrdenados(lista).filter(i=>!ui.pvTipo||tipoPrev(p[lista][i])===ui.pvTipo).forEach(i=>{ const g=grupoPrev(p[lista][i]); (por[g]=por[g]||[]).push(i); });
+      return ORD_G.filter(g=>por[g]).map(g=>({g:g, is:por[g],
+        aPagar:pvCent(por[g].reduce((a,i)=>a+(p[lista][i].aPagar<0?-p[lista][i].aPagar:0),0)),
+        pago:pvCent(por[g].reduce((a,i)=>a+(+p[lista][i].pago||0),0))}));
+    }
+    const opGrupo=(lista,i,g)=>'<select class="pv-gsel" data-pgrupo="'+lista+':'+i+'" title="Mudar o bloco desta linha" aria-label="Bloco">'+
+      ORD_G.map(x=>'<option'+(x===g?" selected":"")+'>'+esc(x)+'</option>').join("")+'</select>';
+    const blocosPrev=lista=>separaBlocos(lista).map(b=>
+      '<tr class="pv-bloco" id="pvb-'+lista+'-'+ORD_G.indexOf(b.g)+'" style="'+estiloBloco(b.g)+'"><td colspan="3"><span class="pv-bn">'+esc(b.g)+'</span>'+
+        '<span class="pv-bq">'+b.is.length+' conta'+(b.is.length===1?'':'s')+'</span></td>'+
+        '<td class="n" title="A pagar no bloco">'+(b.aPagar?brl(b.aPagar):'—')+'</td><td class="n" title="Pago no bloco" style="opacity:.75">'+(b.pago?brl(b.pago):'—')+'</td><td></td></tr>'+
+      b.is.map(i=>linha(lista,p[lista][i],i).replace(/^<tr/,'<tr style="'+estiloBloco(b.g)+'"').replace(/^(<tr[^>]*?)( class="([^"]*)")/,'$1 class="pv-gl $3"').replace(/^(<tr(?![^>]*class=)[^>]*)>/,'$1 class="pv-gl">')
+        .replace('placeholder="Detalhes" aria-label="Detalhes"></td>','placeholder="Detalhes" aria-label="Detalhes">'+opGrupo(lista,i,b.g)+'</td>')).join("")).join("");
+    // totais do filtro: só as contas a pagar (como o "fixos · variáveis" do resumo ao lado)
+    const somaTipo=tp=>pvCent(p.itens.reduce((a,x)=>a+((!tp||tipoPrev(x)===tp)&&x.aPagar<0?-x.aPagar:0),0));
+    const filtroTipo=()=>{ const n=tp=>p.itens.filter(x=>!tp||tipoPrev(x)===tp).length;
+      return '<div class="pv-filtro" role="radiogroup" aria-label="Filtrar por tipo">'+[["","Todos"],["fixo","Fixos"],["var","Variáveis"]].map(([k,r])=>
+        '<button role="radio" aria-checked="'+((ui.pvTipo||"")===k)+'" class="'+((ui.pvTipo||"")===k?"on ":"")+(k||"todos")+'" data-pvtipo="'+k+'">'+r+
+        ' <small>'+n(k)+'</small> <b>'+brl(somaTipo(k))+'</b></button>').join("")+'</div>'; };
+    const chipsPrev=lista=>{ const bs=separaBlocos(lista); if(bs.length<2) return "";
+      return '<div class="pv-chips">'+bs.map(b=>'<button class="pv-chip" data-pchip="pvb-'+lista+'-'+ORD_G.indexOf(b.g)+'" style="'+estiloBloco(b.g)+'" title="Ir para o bloco">'+
+        '<i></i>'+esc(b.g)+' <b>'+(b.aPagar?brl(b.aPagar):'—')+'</b></button>').join("")+'</div>'; };
+    const fixVar=()=>'fixos R$ '+brl(somaTipo("fixo"))+' · <span class="pv-fv-var">variáveis R$ '+brl(somaTipo("var"))+'</span>';
     const tabelaContas=
       '<div class="tit-secao" id="pv-itens" style="margin:0 0 6px"><h3>Contas a pagar</h3></div>'+
-      '<div class="rolagem"><table class="pv-tab pv-contas"><colgroup><col class="c-data"><col><col class="c-val"><col class="c-val"><col class="c-acao"></colgroup>'+
-      '<thead><tr>'+[["data","Data",""],["d","Detalhes",""],["aPagar","A pagar","n"],["pago","Pago","n"]].map(([k,r,c])=>{
+      filtroTipo()+chipsPrev("itens")+
+      '<div class="rolagem"><table class="pv-tab pv-contas"><colgroup><col class="c-data"><col><col class="c-tipo"><col class="c-val"><col class="c-val"><col class="c-acao"></colgroup>'+
+      '<thead><tr>'+[["data","Data",""],["d","Detalhes",""],["tipo","Tipo",""],["aPagar","A pagar","n"],["pago","Pago","n"]].map(([k,r,c])=>{
         const o=ordPrev("itens"), on=o.k===k;
         return '<th class="pv-ord'+(c?" "+c:"")+(on?" on":"")+'" data-pvsort="itens:'+k+'" title="Ordenar por '+r.toLowerCase()+'">'+r+
           '<span class="seta">'+(on?(o.dir>0?" ↑":" ↓"):" ↕")+'</span></th>'; }).join("")+'<th></th></tr></thead><tbody>'+
-      idxOrdenados("itens").map(i=>linha("itens",p.itens[i],i)).join("")+'</tbody></table></div>'+
+      blocosPrev("itens")+'</tbody></table></div>'+
+      (ui.pvTipo&&!separaBlocos("itens").length?'<p class="sub" style="margin:4px 0 0">Nenhuma conta '+(ui.pvTipo==="fixo"?"fixa":"variável")+' neste mês.</p>':'')+
       '<button class="ver-mais" data-padd="itens">+ Adicionar conta</button>';
     const listaSimples=(lista,titulo,rot)=>
       '<div class="tit-secao" id="pv-'+lista+'" style="margin:26px 0 6px"><h3>'+titulo+'</h3></div>'+
@@ -2654,6 +2986,7 @@
           '<div class="pv-l clic-card"'+ir({conta:"prev",alvo:"#pv-receitas",dica:"Ver as receitas esperadas"})+'><span class="pv-n">A receber</span><b id="pvReceber" style="color:#1E8A5F">'+pvBrlS(t.receber)+'</b></div>'+
           '<div class="pv-l clic-card"'+ir({conta:"prev",alvo:"#pv-notas",dica:"Ver as anotações"})+'><span class="pv-n">Anotações</span><b id="pvOutras" style="color:'+(t.outras<0?"#C0392B":"#1E8A5F")+'">'+pvBrlS(t.outras)+'</b></div>'+
           '<div class="pv-l clic-card"'+ir({conta:"prev",alvo:"#pv-itens",dica:"Ver as contas a pagar"})+'><span class="pv-n">A pagar</span><b id="pvAPagar">'+brl(t.aPagar)+'</b></div>'+
+          '<p class="sub" id="pvFV" style="margin:-4px 0 6px;text-align:right">'+fixVar()+'</p>'+
           '<div class="pv-tot clic-card"'+ir({conta:"prev",alvo:"#pv-itens",dica:"Ver as contas que formam o resultado"})+'><span id="pvRot">'+(t.resultado<0?"Falta no mês":"Sobra no mês")+'</span>'+
             '<b id="pvRes" style="color:'+(t.resultado<0?"#C0392B":"#1E8A5F")+'">R$ '+brl(t.resultado)+'</b></div>'+
           '<p class="sub" style="margin-top:8px">Saldo em conta + a receber + anotações − a pagar. O ✓ numa receita marca como recebida e tira da soma (o dinheiro já está no saldo).</p>'+
@@ -2664,7 +2997,7 @@
       '</aside></div>';
 
     const atualizar=()=>{
-      const t=pvTotais(p,ym);
+      const t=pvTotais(p,ym); $("#pvFV").innerHTML=fixVar();
       $("#pvAPagar").textContent=brl(t.aPagar); $("#pvReceber").textContent=pvBrlS(t.receber);
       $("#pvOutras").textContent=pvBrlS(t.outras); $("#pvOutras").style.color=t.outras<0?"#C0392B":"#1E8A5F";
       $("#pvRot").textContent=t.resultado<0?"Falta no mês":"Sobra no mês";
@@ -2672,6 +3005,8 @@
       $("#pvPago").textContent="Já pago no mês: R$ "+brl(t.pago);
     };
     corpo.onchange=e=>{
+      const gs=e.target.closest("[data-pgrupo]");
+      if(gs){ const [l,i]=gs.dataset.pgrupo.split(":"), x=p[l][+i]; if(x){ x.grupo=gs.value; salvar(); pvManterFoco(renderPrevisao); } return; }
       const el=e.target.closest("[data-pv]"); if(!el) return;
       const lista=el.dataset.pv, k=el.dataset.k, txt=String(el.value||"").trim();
       const n=txt===""?null:numero(txt.replace("−","-"));
@@ -2680,6 +3015,7 @@
         salvar(); pvManterFoco(renderPrevisao); return;
       }
       const x=p[lista][+el.dataset.i]; if(!x) return;
+      if(k==="tipo"){ x.tipo=el.value==="var"?"var":"fixo"; salvar(); renderPrevisao(); return; }
       if(k==="d"||k==="data") x[k]=el.value;
       else if(k==="aPagar"){ x.aPagar = (n==null||n===0)?null : (/^\+/.test(txt)?Math.abs(n):-Math.abs(n)); }
       else if(k==="pago"){ x.pago = (n==null||n===0)?null:Math.abs(n); el.value=val(x.pago); }
@@ -2688,6 +3024,10 @@
       if(k==="aPagar") pvManterFoco(renderPrevisao);
     };
     corpo.onclick=e=>{
+      const ft=e.target.closest("[data-pvtipo]");
+      if(ft){ ui.pvTipo=ft.dataset.pvtipo||""; renderPrevisao(); return; }
+      const ch=e.target.closest("[data-pchip]");
+      if(ch){ const r=document.getElementById(ch.dataset.pchip); if(r) r.scrollIntoView({behavior:"smooth",block:"center"}); return; }
       const va=e.target.closest("[data-pverant]");
       if(va){ ui.prevMes=va.dataset.pverant; render(); window.scrollTo(0,0); return; }
       const so=e.target.closest("th[data-pvsort]");
@@ -2699,7 +3039,7 @@
       const ad=e.target.closest("[data-padd]");
       if(ad){
         const l=ad.dataset.padd;
-        p[l].push(l==="itens"?{data:(ym===mesAtual()?hojeISO():ym+"-01"),d:"",aPagar:null,pago:null}:{d:"",v:null});
+        p[l].push(l==="itens"?{data:(ym===mesAtual()?hojeISO():ym+"-01"),d:"",aPagar:null,pago:null,...(ui.pvTipo?{tipo:ui.pvTipo}:{})}:{d:"",v:null});
         salvar(); renderPrevisao();
         const f=document.querySelector('[data-foco="'+l+':'+(p[l].length-1)+':d"]'); if(f) f.focus();
         return;
@@ -2741,7 +3081,7 @@
       const s=saldoBanco(o);
       const fonte=s?('saldo de '+dm(s.base)+(s.ate>s.base?' + lançamentos até '+dm(s.ate):''))
                    :'importe o extrato ou digite o saldo';
-      return '<div class="bc-l clic-card"'+ir({conta:o==="pj"?"bpj":"bcpf",mes:mesAtual(),tipo:"",dica:"Ver os lançamentos da "+nome})+' style="--b:'+(o==="pj"?"#1E8A5F":"#2E86DE")+'"><span class="bc-n">'+nome+'</span>'+
+      return '<div class="bc-l clic-card"'+ir({conta:o==="pj"?"bpj":"bcpf",mes:mesAtual(),tipo:"",dica:"Ver os lançamentos da "+nome})+' style="--b:'+(o==="pj"?"#1E8A5F":"#2E86DE")+'"><span class="bc-n">'+(o==="pj"?'<span class="ic-banco ib-cnpj" aria-hidden="true">CNPJ</span>':'<span class="ic-banco ib-cpf" aria-hidden="true">CPF</span>')+nome+'</span>'+
         '<b style="color:'+(s?cor(s.v):"var(--cinza)")+'">'+(s?'R$ '+brl(s.v):'—')+'</b>'+
         '<span class="kpi-sub">'+fonte+' · <button class="ver-mais" data-bcajustar="'+o+'">'+(s?'ajustar':'digitar saldo')+'</button></span></div>';
     };
@@ -2753,6 +3093,26 @@
         '<span class="kpi-sub">'+(((a&&a.v<0)||(b&&b.v<0))?'<span style="color:#9A5B07">uma das contas está negativa (cheque especial)</span>'
           :(a&&b)?'soma das duas contas':'soma só das contas com saldo')+'</span></div>'+
     '</div></section>';
+  }
+  // faixa do topo da Visão geral: previsão do mês atual (Pessoal e Negócio) — saldo + a receber − a pagar = sobra no mês
+  function faixaPrevisao(){
+    const ym=mesAtual(), prev=dados.previsoes||{}, [a,m]=ym.split("-").map(Number);
+    const fim=String(new Date(a,m,0).getDate()).padStart(2,"0")+"/"+String(m).padStart(2,"0");
+    const card=(rot,v,sub,cor,irO)=>'<div class="g-num clic-card"'+ir(irO)+'><span class="rot">'+rot+'</span>'+
+      '<div class="v" style="color:'+cor+'">R$ '+brl(v)+'</div><span class="kpi-sub">'+sub+'</span></div>';
+    const contas=["cpf","pj"].filter(c=>prev[c]&&prev[c][ym]);
+    if(!contas.length) return '<section class="dash-geral dash-hoje um"><p class="sub" style="margin:0">Crie a '+
+      '<span class="link-prev clic-card"'+ir({conta:"prev",dica:"Abrir a Previsão do mês"})+'>previsão do mês</span> para ver quanto sobra até o fim do mês.</p></section>';
+    return contas.map(c=>{
+      const p=prev[c][ym], t=pvTotais(p,ym,c), nAb=p.itens.filter(x=>x.aPagar!=null&&x.aPagar<0).length;
+      const o=(alvo,dica)=>({conta:"prev",pconta:c,mes:ym,alvo:alvo,dica:dica});
+      return '<div class="tit-secao dash-hoje-tit"><h3>Previsão de '+esc(rotuloMes(ym))+' · '+esc(pvNome(c))+'</h3></div>'+
+        '<section class="dash-geral dash-hoje">'+
+        card("Saldo em conta",t.saldo,p.saldoManual?"digitado na previsão":"conta "+(c==="pj"?"CNPJ":"CPF")+", na previsão",t.saldo<0?"var(--neg)":"var(--tx)",o("#pv-resumo","Ver o saldo na previsão do mês"))+
+        card("+ A receber",t.receber+t.outras,"receitas e anotações em aberto","var(--pos)",o("#pv-receitas","Ver as receitas esperadas"))+
+        card("− A pagar",-t.aPagar,nAb+" conta"+(nAb===1?"":"s")+" em aberto até o fim do mês","var(--tx)",o("#pv-itens","Ver as contas a pagar"))+
+        card("= "+(t.resultado<0?"Falta no mês":"Sobra no mês"),t.resultado,"previsão para "+fim,t.resultado<0?"var(--neg)":"var(--pos)",o("#pv-resumo","Ver o cálculo na previsão do mês"))+
+      '</section>'; }).join("");
   }
   function ajustarSaldoBanco(o){
     const s=saldoBanco(o), nome=o==="pj"?"Conta CNPJ":"Conta CPF";
@@ -4428,7 +4788,7 @@
   // o: {conta, mes, tipo ("e" entradas / "s" saídas / ""), mov ("1" só o que entra no total · "b" como no banco), origem, alvo (seletor), dica}
   function ir(o){
     let a=' data-ir="1" role="button" tabindex="0" title="'+esc(o.dica||"Ver detalhes")+'"';
-    ["conta","mes","tipo","origem","alvo"].forEach(k=>{ if(o[k]!=null) a+=' data-ir-'+k+'="'+esc(o[k])+'"'; });
+    ["conta","mes","tipo","origem","alvo","pconta"].forEach(k=>{ if(o[k]!=null) a+=' data-ir-'+k+'="'+esc(o[k])+'"'; });
     if(o.mov) a+=' data-ir-mov="'+esc(o.mov)+'"';
     return a;
   }
@@ -4436,6 +4796,7 @@
     const d=el.dataset, conta=d.irConta||ui.conta;
     const lanc=["cpf","pj","bcpf","bpj","todas"].includes(conta);
     if(conta!==ui.conta){ ui.conta=conta; ui.view="mes"; }
+    if(d.irPconta) ui.prevConta=d.irPconta;
     if(d.irMes){ if(conta==="prev") ui.prevMes=d.irMes; else ui.mes=d.irMes; }
     if(lanc && d.irTipo!=null){
       ui.view="mes"; ui.busca=""; ui.cat=""; ui.vinculo=""; ui.fat=""; ui.errada="";
@@ -4507,6 +4868,14 @@
   new MutationObserver(()=>cxPreparar()).observe($("#corpo"),{childList:true});
   window.addEventListener("resize",cxAjustar);
 
+  // seções: abre a última tela usada na seção (ou a primeira)
+  document.getElementById("navGrupos").addEventListener("click",e=>{
+    const bg=e.target.closest(".nav-grupo"); if(!bg) return;
+    const g=bg.dataset.grupo, ult=(ui.ultG||{})[g];
+    const alvo=(ult&&document.querySelector('#contaTabs .conta-tab[data-g="'+g+'"][data-conta="'+ult+'"]'))||
+      document.querySelector('#contaTabs .conta-tab[data-g="'+g+'"]');
+    if(alvo) alvo.click();
+  });
   // seletor de conta
   document.getElementById("contaTabs").addEventListener("click",e=>{
     const bt=e.target.closest(".conta-tab"); if(!bt) return;
@@ -4603,6 +4972,7 @@
   $("#btRestaurar").onclick=()=>$("#arqJson").click();
   $("#arqJson").onchange=e=>{ if(e.target.files[0]) restaurarBackup(e.target.files[0]); e.target.value=""; };
   $("#btLancar").onclick=()=>adicionarManual(ui.conta==="pj"?"pj":"pf");
+  $("#btLancarNav").onclick=()=>$("#btLancar").click();
   $("#btPendentes").onclick=()=>abrirPendentes();
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) carregarPendentes(); });
 
