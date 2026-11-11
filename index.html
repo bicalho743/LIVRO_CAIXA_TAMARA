@@ -314,6 +314,14 @@
       font-size:14px;color:var(--tinta);border:1px solid var(--linha);border-radius:2px;
       padding:9px 11px;text-transform:none;letter-spacing:normal}
   .modal-acoes{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+  .pr-form{max-height:58vh;overflow:auto;margin-bottom:10px}
+  .pr-lin{display:grid;grid-template-columns:22px 130px 1fr 92px 96px;gap:6px;align-items:center;padding:6px 0;border-top:1px solid var(--linha,#e5e5e5)}
+  .pr-lin input[type=text],.pr-lin input[type=date],.pr-lin select{width:100%;min-width:0;font-size:13px;padding:5px 6px}
+  .pr-lin .pr-val{text-align:right}
+  .pr-lin .pr-obs{grid-column:2/-1;font-size:11px;opacity:.65;margin-top:-3px}
+  .pr-lin .pr-obs:empty{display:none}
+  .pr-ja{opacity:.6}
+  @media (max-width:640px){.pr-lin{grid-template-columns:22px 1fr 1fr}.pr-lin>input[type=checkbox]{grid-row:1/4}.pr-lin input[type=date],.pr-lin input[name^=h_],.pr-lin .pr-obs{grid-column:2/-1}}
 
   /* ---- etiquetas de cor por categoria ---- */
   .ponto{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:9px;
@@ -956,6 +964,7 @@
         <div class="menu" id="menuImportar" hidden>
           <button id="btImportar">Extrato (CSV, Excel ou OFX)</button>
           <button id="btImportarPDF">Fatura do cartão (PDF)</button>
+          <button id="btImportarPrint">Fatura do cartão (prints do app BB)</button>
         </div>
       </div>
       <button class="bt vazado" id="btLancar">+ Lançamento</button>
@@ -973,6 +982,7 @@
       <div id="barraUsuario"></div>
       <input type="file" id="arqCsv" accept=".csv,.xlsx,.xls,.ofx,.qfx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
       <input type="file" id="arqPdf" accept=".pdf,application/pdf" hidden>
+      <input type="file" id="arqPrint" accept="image/*,.jfif" multiple hidden>
       <input type="file" id="arqJson" accept=".json,application/json" hidden>
     </div>
   </header>
@@ -2095,6 +2105,201 @@
            (formatoPJ?" (formato PJ detectado)":""));
   }
 
+  /* grava compras do cartão sem duplicar — usado pela fatura em PDF e pelos prints do app do BB */
+  function gravarComprasCartao(lancamentos){
+    // Evitar duplicar: a mesma compra pode vir escrita um pouco diferente na fatura
+    // em aberto e na fechada ("DUROKE CASA DE CARNE BELO" × "...BELO HORIZONT").
+    // Compara data + valor + começo da descrição; compras iguais no mesmo dia contam
+    // uma a uma (duas de R$ 29,90 no mesmo dia são duas compras).
+    const norm = s => String(s).toUpperCase().normalize("NFD").replace(/[^A-Z0-9]/g,"");
+    const parecido = (a,b)=>{ a=norm(a); b=norm(b); const n=Math.min(8,a.length,b.length); return n>0 && a.slice(0,n)===b.slice(0,n); };
+    const livres = new Map();
+    dados.lancamentos.forEach(l=>{
+      if(l.origem!=="cartao") return;
+      const k = l.data+"|"+Number(l.valor).toFixed(2);
+      if(!livres.has(k)) livres.set(k,[]);
+      livres.get(k).push(l);
+    });
+    const idsUsados = new Set(dados.lancamentos.map(l=>l.id));
+    let novos=0, repetidos=0, prontos=0;
+    const mesesTocados = new Set();
+    const casados = new Set();
+
+    lancamentos.forEach(l=>{
+      const k = l.data+"|"+l.valor.toFixed(2);
+      const cand = livres.get(k)||[];
+      const i = cand.findIndex(x=>parecido(x.hist,l.hist));
+      if(i>=0){ casados.add(cand[i]); cand.splice(i,1); repetidos++; return; }
+      const base = l.data+"|cartao|"+l.valor.toFixed(2)+"|"+l.hist.slice(0,42);
+      let id = base, n = 2;
+      while(idsUsados.has(id)) id = base+"#"+(n++);
+      // valor positivo vindo do cartão = estorno/crédito de compra
+      let c = classificar(l.hist, l.valor);
+      if(l.valor > 0 && c.categoria==="Receita de cliente"){
+        c = {categoria:"Reembolso e estorno", vinculo:"PF"};
+      }
+      if(c.categoria!=="Sem categoria") prontos++;
+      const novoL={id, data:l.data, hist:l.hist, valor:l.valor,
+        doc:l.doc, categoria:c.categoria, vinculo:c.vinculo, obs:"", origem:"cartao"};
+      dados.lancamentos.push(novoL); casados.add(novoL);
+      idsUsados.add(id); novos++;
+      mesesTocados.add(l.data.slice(0,7));
+    });
+
+    return {novos,repetidos,prontos,casados,mesesTocados};
+  }
+  /* ================= importação de prints da fatura do cartão (app do BB) — OCR no navegador ================= */
+  const MESES_PT = {janeiro:1,fevereiro:2,"março":3,marco:3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12};
+  /* Lê o texto de UM print. Devolve os itens na ordem da tela; os do topo, antes do primeiro
+     cabeçalho de data, ficam com data null (a data deles está no print anterior). */
+  function lerPrintBB(texto, hoje){
+    hoje = hoje || new Date();
+    const linhas = String(texto).split(/\r?\n/).map(l=>l.replace(/\s+/g," ").trim()).filter(Boolean);
+    const itens = []; let dataAtual = null, primeiraData = null, atual = null;
+    const isoDe = (d,m)=>{
+      let a = hoje.getFullYear();
+      const dt = new Date(a, m-1, d);
+      if(dt.getTime() > hoje.getTime() + 7*864e5) a--;      // dezembro lido em janeiro = ano anterior
+      return a+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+    };
+    const valorDe = s=>{
+      s = s.replace(/[^\d.,]/g,"");
+      if(!/,\d{2}$/.test(s)){                                  // OCR às vezes come a vírgula: "17710" = 177,10
+        const dg = s.replace(/\D/g,""); if(dg.length<3) return NaN;
+        return parseInt(dg,10)/100;
+      }
+      return parseFloat(s.replace(/\./g,"").replace(",","."));
+    };
+    linhas.forEach(l=>{
+      const md = l.match(/^(\d{1,2})\s+de\s+([a-zçã]+)/i);
+      if(md && MESES_PT[md[2].toLowerCase()]){
+        dataAtual = isoDe(parseInt(md[1],10), MESES_PT[md[2].toLowerCase()]);
+        if(!primeiraData) primeiraData = dataAtual;
+        atual = null; return;
+      }
+      const mi = l.match(/^(.+?)\s*R\s?\$\s*([\d.,\s]*\d)/);
+      if(mi){
+        const desc = mi[1].replace(/[€>|]+/g,"").trim();
+        const v = valorDe(mi[2]);
+        atual = {desc, v, data:dataAtual, final:"", hora:"", estorno:false, processando:false,
+                 ignorar:/fatura\s+atrasada|pagamento\s+efetuado|fatura\s+anterior|^pagamento|saldo\s+anterior|^encargos|^juros/i.test(desc)};
+        if(desc && !isNaN(v) && v>0) itens.push(atual); else atual=null;
+        return;
+      }
+      if(!atual) return;
+      const mf = l.match(/Final\s+(\d{4})/i); if(mf) atual.final = mf[1];
+      if(/^[EF]storno|estorno/i.test(l)) atual.estorno = true;
+      if(/processando/i.test(l)) atual.processando = true;
+      if(/fatura\s+anterior/i.test(l)) atual.ignorar = true;
+      const mh = l.match(/^(\d{2}):(\d{2})$/); if(mh) atual.hora = l;
+    });
+    return {itens, primeiraData, ultimaData:dataAtual};
+  }
+  /* Junta vários prints: ordena do mais recente para o mais antigo (como a tela do BB),
+     passa a data do fim de um print para o topo do seguinte e tira o que aparece repetido
+     na emenda entre dois prints. */
+  function juntarPrintsBB(lidos){
+    const ord = lidos.slice().sort((a,b)=>{
+      const da=a.primeiraData||a.ultimaData||"", db=b.primeiraData||b.ultimaData||"";
+      return da<db?1:da>db?-1:0;
+    });
+    const norm = s => String(s).toUpperCase().normalize("NFD").replace(/[^A-Z0-9]/g,"");
+    const saida = []; let dataAnterior = null;
+    ord.forEach(p=>{
+      p.itens.forEach(it=>{ if(!it.data) it.data = dataAnterior; });
+      if(p.ultimaData || p.itens.length) dataAnterior = p.ultimaData || dataAnterior;
+      p.itens.forEach(it=>{
+        if(it.ignorar) return;
+        // repetido na emenda: mesma data, mesmo valor, mesmo começo de nome e (se as duas tiverem) mesma hora
+        const dup = saida.find(x=>x.data===it.data && Math.abs(x.v-it.v)<0.005 &&
+          norm(x.desc).slice(0,8)===norm(it.desc).slice(0,8) && (!x.hora||!it.hora||x.hora===it.hora));
+        if(dup){ if(!dup.hora) dup.hora=it.hora; if(!dup.final) dup.final=it.final; dup.estorno=dup.estorno||it.estorno; return; }
+        saida.push(it);
+      });
+    });
+    return saida;
+  }
+  let _tesseractCarregando = null;
+  function carregarTesseract(){
+    if(window.Tesseract) return Promise.resolve();
+    if(_tesseractCarregando) return _tesseractCarregando;
+    _tesseractCarregando = new Promise((ok,erro)=>{
+      const s=document.createElement("script");
+      s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+      s.onload=()=>ok(); s.onerror=()=>{ _tesseractCarregando=null; erro(new Error("tesseract")); };
+      document.head.appendChild(s);
+    });
+    return _tesseractCarregando;
+  }
+  async function importarPrintsCartao(arquivos){
+    arquivos = [...arquivos].filter(a=>/^image\//.test(a.type)||/\.(jpe?g|png|jfif|webp|heic)$/i.test(a.name));
+    if(!arquivos.length){ avisar("Escolha as imagens (prints) da fatura.",true); return; }
+    try{ await carregarTesseract(); }
+    catch(e){ avisar("Não consegui carregar o leitor de imagens. Verifique a internet e tente de novo.",true); return; }
+    const lidos = [];
+    let worker;
+    try{
+      avisar("Preparando o leitor de imagens… (a primeira vez demora um pouco)");
+      worker = await Tesseract.createWorker("por");
+      for(let i=0;i<arquivos.length;i++){
+        avisar("Lendo print "+(i+1)+" de "+arquivos.length+"…");
+        const r = await worker.recognize(arquivos[i]);
+        lidos.push(lerPrintBB(r.data.text));
+      }
+    }catch(e){ console.error(e); avisar("Não consegui ler as imagens.",true); return; }
+    finally{ try{ worker && await worker.terminate(); }catch(_){} }
+
+    const itens = juntarPrintsBB(lidos);
+    if(!itens.length){ avisar("Não encontrei compras nos prints. Use os prints da tela Faturas do app do BB.",true); return; }
+
+    // o que já está no app (mesma regra da gravação: data + valor + começo do nome)
+    const norm = s => String(s).toUpperCase().normalize("NFD").replace(/[^A-Z0-9]/g,"");
+    const jaTem = it => it.data && dados.lancamentos.some(l=>l.origem==="cartao" && l.data===it.data &&
+      Math.abs(Math.abs(+l.valor)-it.v)<0.005 && norm(l.hist).slice(0,8)===norm(it.desc).slice(0,8));
+    const cartaoPadrao = (dados.faturaFechada&&dados.faturaFechada.cartao)||"Final 4485";
+    let nJa = 0;
+    const linhas = itens.map((it,i)=>{
+      const ja = jaTem(it); if(ja) nJa++;
+      return '<div class="pr-lin'+(ja?' pr-ja':'')+'">'+
+        '<input type="checkbox" name="s_'+i+'"'+(ja?'':' checked')+' title="Importar este lançamento">'+
+        '<input type="date" name="d_'+i+'" value="'+(it.data||"")+'" required>'+
+        '<input type="text" name="h_'+i+'" value="'+esc(it.desc)+'" required>'+
+        '<input type="text" name="v_'+i+'" value="'+brl(it.v)+'" inputmode="decimal" required class="pr-val">'+
+        '<select name="t_'+i+'"><option value="c">Compra</option><option value="e"'+(it.estorno?' selected':'')+'>Estorno</option></select>'+
+        '<span class="pr-obs">'+(ja?'já está no app':(it.processando?'processando':''))+(it.hora?' '+esc(it.hora):'')+'</span>'+
+      '</div>';
+    }).join("");
+    const semData = itens.filter(it=>!it.data).length;
+    const f = await modal(
+      '<h3 class="modal-tit">Prints do cartão · '+itens.length+' lançamento'+(itens.length===1?'':'s')+'</h3>'+
+      '<p class="modal-corpo" style="margin-bottom:8px">Confira o que o leitor encontrou. Corrija o que estiver errado e desmarque o que não quer importar.'+
+        (nJa?' '+nJa+' já está'+(nJa===1?'':'o')+' no app e vie'+(nJa===1?'io':'ram')+' desmarcado'+(nJa===1?'':'s')+'.':'')+
+        (semData?' <b style="color:#b45309">'+semData+' sem data: preencha antes de importar.</b>':'')+
+        ' Pagamentos de fatura ficam de fora.</p>'+
+      '<form onsubmit="return false" class="pr-form">'+linhas+'</form>'+
+      '<div class="modal-acoes">'+
+        '<button type="button" class="bt vazado" data-modal="cancelar">Cancelar</button>'+
+        '<button type="button" class="bt" data-modal="ok">Importar marcados</button>'+
+      '</div>');
+    if(!f) return;
+    const lancs = [];
+    itens.forEach((it,i)=>{
+      if(!f["s_"+i]) return;
+      const v = parseFloat(String(f["v_"+i]).replace(/[^\d,.-]/g,"").replace(/\./g,"").replace(",","."));
+      if(!f["d_"+i] || isNaN(v) || v===0) return;
+      lancs.push({data:f["d_"+i], hist:String(f["h_"+i]).trim(),
+        valor: f["t_"+i]==="e" ? Math.abs(v) : -Math.abs(v),
+        doc: it.final ? "Final "+it.final : cartaoPadrao});
+    });
+    if(!lancs.length){ avisar("Nada marcado para importar."); return; }
+    const {novos,repetidos,prontos,mesesTocados} = gravarComprasCartao(lancs);
+    dados.lancamentos.sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);
+    if(mesesTocados.size){ ui.mes=[...mesesTocados].sort().pop(); ui.view="mes"; }
+    salvar(); render();
+    avisar(novos+" lançamento"+(novos===1?"":"s")+" do cartão importado"+(novos===1?"":"s")+
+           (novos?" · "+prontos+" já classificado"+(prontos===1?"":"s"):"")+
+           (repetidos?" · "+repetidos+" já existia"+(repetidos===1?"":"m"):""));
+  }
   /* ================= importação PDF da fatura do cartão — sem API ================= */
   async function importarFaturaPDF(arq){
     avisar("Lendo a fatura…");
@@ -2236,44 +2441,7 @@
           proxFechamento: mProx ? dataBR(mProx[1]) : ""};
     }
 
-    // Evitar duplicar: a mesma compra pode vir escrita um pouco diferente na fatura
-    // em aberto e na fechada ("DUROKE CASA DE CARNE BELO" × "...BELO HORIZONT").
-    // Compara data + valor + começo da descrição; compras iguais no mesmo dia contam
-    // uma a uma (duas de R$ 29,90 no mesmo dia são duas compras).
-    const norm = s => String(s).toUpperCase().normalize("NFD").replace(/[^A-Z0-9]/g,"");
-    const parecido = (a,b)=>{ a=norm(a); b=norm(b); const n=Math.min(8,a.length,b.length); return n>0 && a.slice(0,n)===b.slice(0,n); };
-    const livres = new Map();
-    dados.lancamentos.forEach(l=>{
-      if(l.origem!=="cartao") return;
-      const k = l.data+"|"+Number(l.valor).toFixed(2);
-      if(!livres.has(k)) livres.set(k,[]);
-      livres.get(k).push(l);
-    });
-    const idsUsados = new Set(dados.lancamentos.map(l=>l.id));
-    let novos=0, repetidos=0, prontos=0;
-    const mesesTocados = new Set();
-    const casados = new Set();
-
-    lancamentos.forEach(l=>{
-      const k = l.data+"|"+l.valor.toFixed(2);
-      const cand = livres.get(k)||[];
-      const i = cand.findIndex(x=>parecido(x.hist,l.hist));
-      if(i>=0){ casados.add(cand[i]); cand.splice(i,1); repetidos++; return; }
-      const base = l.data+"|cartao|"+l.valor.toFixed(2)+"|"+l.hist.slice(0,42);
-      let id = base, n = 2;
-      while(idsUsados.has(id)) id = base+"#"+(n++);
-      // valor positivo vindo do cartão = estorno/crédito de compra
-      let c = classificar(l.hist, l.valor);
-      if(l.valor > 0 && c.categoria==="Receita de cliente"){
-        c = {categoria:"Reembolso e estorno", vinculo:"PF"};
-      }
-      if(c.categoria!=="Sem categoria") prontos++;
-      const novoL={id, data:l.data, hist:l.hist, valor:l.valor,
-        doc:l.doc, categoria:c.categoria, vinculo:c.vinculo, obs:"", origem:"cartao"};
-      dados.lancamentos.push(novoL); casados.add(novoL);
-      idsUsados.add(id); novos++;
-      mesesTocados.add(l.data.slice(0,7));
-    });
+    const {novos,repetidos,prontos,casados,mesesTocados} = gravarComprasCartao(lancamentos);
 
     dados.lancamentos.sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);
     if(mesesTocados.size){ ui.mes=[...mesesTocados].sort().pop(); ui.view="mes"; }
@@ -3545,7 +3713,7 @@
     if(ui.view==="regras"){ renderRegras(); return; }
     if(!meses.length){
       corpo.innerHTML='<div class="vazio"><p class="num">Comece pelo extrato</p>'+
-        '<p>Clique em <b>Importar</b> e traga o extrato do Banco do Brasil (CSV ou Excel) ou a fatura do cartão (PDF). '+
+        '<p>Clique em <b>Importar</b> e traga o extrato do Banco do Brasil (CSV ou Excel) ou a fatura do cartão (PDF ou prints do app do BB). '+
         'Os lançamentos entram já classificados e ficam guardados para os próximos meses.</p></div>';
       return;
     }
@@ -4941,6 +5109,8 @@
 
   $("#btImportarPDF").onclick=()=>$("#arqPdf").click();
   $("#arqPdf").onchange=e=>{ if(e.target.files[0]) importarFaturaPDF(e.target.files[0]); e.target.value=""; };
+  $("#btImportarPrint").onclick=()=>$("#arqPrint").click();
+  $("#arqPrint").onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; if(fs.length) importarPrintsCartao(fs); };
   $("#btImportar").onclick=()=>$("#arqCsv").click();
   $("#arqCsv").onchange=e=>{ if(e.target.files[0]) lerArquivo(e.target.files[0]); e.target.value=""; };
   $("#btBackup").onclick=exportarBackup;
